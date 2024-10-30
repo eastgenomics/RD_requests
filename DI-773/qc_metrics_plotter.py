@@ -5,6 +5,7 @@ import plotly.io as pio
 import json
 import argparse
 
+from functools import reduce
 from plotly.subplots import make_subplots
 
 pio.renderers.default = "browser"
@@ -95,7 +96,9 @@ def get_projects(
     return projects
 
 
-def find_files(filename_pattern, project_id, name_mode="regexp"):
+def find_files(
+    filename_pattern, project_id, folder_name='/', name_mode="regexp"
+):
     """
     Find files in a project using the specified search term and mode.
 
@@ -126,7 +129,8 @@ def find_files(filename_pattern, project_id, name_mode="regexp"):
             name=filename_pattern,
             name_mode=name_mode,
             project=project_id,
-            describe={"fields": {"name": True}},
+            folder=folder_name,
+            describe={"fields": {"name": True, "state": True}},
         )
     )
 
@@ -339,6 +343,32 @@ def add_qc_metric_dfs(projects, config):
                         file_type="excel",
                     )
                 )
+            elif key == 'het_hom':
+                all_results = find_files(
+                    filename_pattern=config["file"][key]["pattern"],
+                    name_mode="regexp",
+                    project_id=proj_b38["id"],
+                    folder_name='/output/eggd_vcf_qc_v2.0.0'
+                )
+                all_closed = [
+                    file for file in all_results
+                    if file['describe']['state'] == 'closed'
+                ]
+                for vcf_qc_file in all_closed:
+                    sample_name = vcf_qc_file["describe"]["name"].split(
+                        "_"
+                    )[0]
+                    dfs_dict[key]["dfs"].append(
+                        read2df(
+                            file_id=vcf_qc_file["id"],
+                            project=proj_b38,
+                            separator=config["file"][key]["file_sep"],
+                            mode="r",
+                            file_type="tsv",
+                            genome_build="GRCh38",
+                            sample_name=sample_name
+                        )
+                    )
 
             else:
                 search_results = find_files(
@@ -390,26 +420,33 @@ def make_plot(
         Max value for y axis (default None)
     plot_failed: bool
         Boolean for plotting values from failed samples (default True)
-    warning_line: float
+    warning_line: list
         y axis value(s) along which a warning line is drawn (default None)
-    fail_line: float
+    fail_line: list
         y axis value(s) along which a fail line is drawn
     plot_std: bool
         Boolean whether to plot std lines (default True)
     """
+
+    if (assay == 'TWE') and (col_name == 'FOLD_ENRICHMENT'):
+        df = df.loc[df['run'] != '038_240212_A01295_0315_BHT7FWDMXY_TWE38']
     passed_df = df[
         (df["QC_status"].str.strip().str.lower() == "pass")
-        | (df["QC_status"].str.strip().str.lower() == "warning")
+        # | (df["QC_status"].str.strip().str.lower() == "warning")
     ].sort_values("run")
+
+    warning_df = df[
+        (df["QC_status"].str.strip().str.lower() == "warning")
+    ].sort_values('run')
 
     failed_df = df[
         (df["QC_status"].str.strip().str.lower() == "fail")
         | (df["QC_status"].str.strip().str.lower() == "cancelled")
     ].sort_values("run")
 
-    n_filtered_rows = len(passed_df) + len(failed_df)
+    n_filtered_rows = len(passed_df) + len(failed_df) + len(warning_df)
     assert n_filtered_rows == len(df), (
-        "QC_Status column contains invalid values: "
+        f"QC_Status column for {col_name} contains invalid values: "
         f"{df['QC_status'].unique().tolist()}"
     )
 
@@ -437,6 +474,7 @@ def make_plot(
         fig.add_hline(
             y=passed_df[col_name].mean() + passed_df[col_name].std(),
             line_dash="dot",
+            line_color='purple',
             annotation_text=(
                 f"<b>+STD: "
                 f"{passed_df[col_name].mean() + passed_df[col_name].std():.5f}"
@@ -445,8 +483,31 @@ def make_plot(
             annotation_position="right",
         )
         fig.add_hline(
+            y=passed_df[col_name].mean() + (2*passed_df[col_name].std()),
+            line_dash="dot",
+            line_color='teal',
+            annotation_text=(
+                f"<b>+2STD: "
+                f"{passed_df[col_name].mean() + (2*passed_df[col_name].std()):.5f}"
+                "</b>"
+            ),
+            annotation_position="right",
+        )
+        fig.add_hline(
+            y=passed_df[col_name].mean() + (3*passed_df[col_name].std()),
+            line_dash="dot",
+            line_color='salmon',
+            annotation_text=(
+                f"<b>+3STD: "
+                f"{passed_df[col_name].mean() + (3*passed_df[col_name].std()):.5f}"
+                "</b>"
+            ),
+            annotation_position="right",
+        )
+        fig.add_hline(
             y=passed_df[col_name].mean() - passed_df[col_name].std(),
             line_dash="dot",
+            line_color='purple',
             annotation_text=(
                 f"<b>-STD: "
                 f"{passed_df[col_name].mean()-passed_df[col_name].std():.5f}"
@@ -454,22 +515,62 @@ def make_plot(
             ),
             annotation_position="right",
         )
+        fig.add_hline(
+            y=passed_df[col_name].mean() - (2*passed_df[col_name].std()),
+            line_dash="dot",
+            line_color='teal',
+            annotation_text=(
+                f"<b>-2STD: "
+                f"{passed_df[col_name].mean() - (2*passed_df[col_name].std()):.5f}"
+                "</b>"
+            ),
+            annotation_position="right",
+        )
+        fig.add_hline(
+            y=passed_df[col_name].mean() - (3*passed_df[col_name].std()),
+            line_dash="dot",
+            line_color='salmon',
+            annotation_text=(
+                f"<b>-3STD: "
+                f"{passed_df[col_name].mean() - (3*passed_df[col_name].std()):.5f}"
+                "</b>"
+            ),
+            annotation_position="right",
+        )
 
     if plot_failed:
-        fig.add_scatter(
-            x=failed_df["run"],
-            y=failed_df[col_name],
-            mode="markers",
-            hoverinfo="text",
-            text=(
-                failed_df["Sample"]
-                + "<br>"
-                + failed_df[col_name].astype(str)
-                + "<br>"
-                + failed_df["Reason"]
-            ),
-            name="Failed samples",
-        )
+        if not failed_df.empty:
+            fig.add_scatter(
+                x=failed_df["run"],
+                y=failed_df[col_name],
+                mode="markers",
+                marker=dict(color='red'),
+                hoverinfo="text",
+                text=(
+                    failed_df["Sample"]
+                    + "<br>"
+                    + failed_df[col_name].astype(str)
+                    + "<br>"
+                    + failed_df["Reason"]
+                ),
+                name="Failed samples",
+            )
+        if not warning_df.empty:
+            fig.add_scatter(
+                x=warning_df["run"],
+                y=warning_df[col_name],
+                mode="markers",
+                marker=dict(color='orange'),
+                hoverinfo="text",
+                text=(
+                    warning_df["Sample"]
+                    + "<br>"
+                    + warning_df[col_name].astype(str)
+                    + "<br>"
+                    + warning_df["Reason"]
+                ),
+                name="Warning samples",
+            )
 
     if (y_range_low is None) != (y_range_high is None):
         raise ValueError(
@@ -483,7 +584,7 @@ def make_plot(
             fig.add_hline(
                 y=line,
                 line_color="orange",
-                annotation_text="<b>Warning</b>",
+                annotation_text="<b>Current Warning</b>",
                 annotation_position="right",
             )
 
@@ -492,10 +593,10 @@ def make_plot(
             fig.add_hline(
                 y=line,
                 line_color="red",
-                annotation_text="<b>Fail</b>",
+                annotation_text="<b>Current Fail</b>",
                 annotation_position="right",
             )
-    fig.show()
+
     fig.write_html(f"{col_name}_{assay}.html")
 
 
@@ -730,8 +831,84 @@ def make_happy_plot(happy_df, config):
             else legend_names.add(trace.name)
         )
     )
-    fig_with_lines.show()
+
     fig_with_lines.write_html(f"happy_{assay}.html")
+
+
+def plot_histogram(
+    df,
+    col_name,
+    assay: str,
+    warning_line=None,
+    fail_line=None
+):
+    """
+    Plot a histogram of the QC metric of interest.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe of data to plot
+    col_name : str
+        Name of column being plotted on the y axis
+    assay : str
+        The assay being plotted
+    warning_line : list, optional
+        values to plot as vertical warning line(s), by default None
+    fail_line : list, optional
+        values to plot as vertical fail line(s), by default None
+    """
+    df['QC_status'] = df['QC_status'].str.strip().str.lower().str.title()
+
+    uncancelled = df[
+        (df["QC_status"] != "Cancelled")
+    ].sort_values("QC_status")
+
+    discrete_map = {
+        'Pass': 'blue',
+        'Fail': 'red',
+        'Warning': 'orange'
+    }
+
+    fig = px.histogram(
+        uncancelled,
+        x=col_name,
+        color='QC_status',
+        color_discrete_map=discrete_map,
+        category_orders={
+            "QC_status": ['Pass', 'Warning', 'Fail']
+        },
+        barmode='overlay',
+        marginal="box"
+    )
+
+    fig.update_layout(
+        title=f'Distribution of {assay} {col_name} values',
+        legend_title='QC Status',
+        yaxis_title_text='Count'
+    )
+
+    if warning_line is not None:
+        for line in warning_line:
+            fig.add_vline(
+                x=line,
+                line_color="orange",
+                line_dash="dot",
+                annotation_text="<b>Current Warning</b>",
+                annotation_position="right",
+            )
+
+    if fail_line is not None:
+        for line in fail_line:
+            fig.add_vline(
+                x=line,
+                line_color="red",
+                line_dash="dot",
+                annotation_text="<b>Current Fail</b>",
+                annotation_position="right",
+            )
+
+    fig.write_html(f"{col_name}_{assay}_histogram.html")
 
 
 def main():
@@ -776,11 +953,24 @@ def main():
                 continue
             else:
                 # add reason and pass/fail columns to merged dfs
+                if key == "sentieon":
+                    dfs_dict[key].rename(
+                        columns={
+                            "Sample": "Sample_FR", "SAMPLE_NAME": "Sample"
+                        },
+                        inplace=True
+                    )
+
                 final_df = pd.merge(
                     dfs_dict[key],
                     qc_df[["Sample", "QC_status", "Reason"]],
                     on="Sample",
                 )
+                if key == 'het_hom':
+                    final_df = final_df.drop_duplicates(
+                        subset=['Sample', 'run'], keep='first',
+                        ignore_index=True
+                    )
                 # Write merged dataframes out to TSV
                 final_df.to_csv(f"{key}_{assay}.tsv", sep="\t", index=False)
 
@@ -797,6 +987,26 @@ def main():
                         fail_line=plot_config["fail_line"],
                         plot_std=plot_config["plot_std"],
                     )
+                    plot_histogram(
+                        df=final_df,
+                        col_name=plot_config["col_name"],
+                        assay=config["project_search"]["assay"],
+                        warning_line=plot_config["warning_line"],
+                        fail_line=plot_config["fail_line"]
+                    )
+        all_dfs = [
+            dfs_dict[key] for key in dfs_dict.keys()
+            if key not in ['happy', 'qc_status']
+        ]
+        all_metrics_df = reduce(
+            lambda left, right: pd.merge(
+                left, right, on=['Sample', 'run'],
+                how='outer'
+            ), all_dfs
+        )
+        all_metrics_df = pd.merge(qc_df, all_metrics_df, on=['Sample', 'run'])
+        all_metrics_df.to_csv(f"all_metrics_{assay}.tsv", sep="\t", index=False)
+
 
     elif args.runmode == "plot_only":
         assay = config["project_search"]["assay"]
@@ -823,6 +1033,13 @@ def main():
                         warning_line=plot_config["warning_line"],
                         fail_line=plot_config["fail_line"],
                         plot_std=plot_config["plot_std"],
+                    )
+                    plot_histogram(
+                        df=qc_df,
+                        col_name=plot_config["col_name"],
+                        assay=config["project_search"]["assay"],
+                        warning_line=plot_config["warning_line"],
+                        fail_line=plot_config["fail_line"]
                     )
 
 
