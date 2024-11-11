@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
         "-s",
         "--start",
         type=str,
+        default=None,
         help="Start date to search for projects",
     )
 
@@ -43,6 +44,7 @@ def parse_args() -> argparse.Namespace:
         "-e",
         "--end",
         type=str,
+        default=None,
         help="End date to search for projects",
     )
 
@@ -161,7 +163,7 @@ def read_in_qc_file_to_df(qc_file, b37_proj_id):
     return qc_df
 
 
-def get_qc_files(b38_projects):
+def get_qc_files(b38_projects, start=None, end=None):
     """
     Find QC status files and read in to create list of data frames
 
@@ -169,13 +171,26 @@ def get_qc_files(b38_projects):
     ----------
     b38_projects : list
         list of dicts, each representing a DNAnexus project
+    start : str (optional)
+        start date to look for projects from
+    end: str (optional)
+        end date to look for projects until
+
 
     Returns
     -------
     all_qc_files : list
         list of dicts, each representing a QC status file in DX
+    missing_projects : list
+        list of missing projects
+    b38_project_subset : list
+        list of b38 projects that have corresponding b37 projects
     """
+    b37_projects = []
+    b37_project_dict = {}
     all_qc_files = []
+    missing_projects = []
+    b38_project_subset = []
     for b38_proj in b38_projects:
         folder_002 = (
             b38_proj["describe"]["name"]
@@ -183,10 +198,17 @@ def get_qc_files(b38_projects):
             .split("_", maxsplit=1)[1]
         )
         run_name = f"002_{folder_002}*"
-        b37_project = find_projects(run_name)
-
+        b37_project = find_projects(run_name, start, end)
+        if not b37_project:
+            continue
+        else:
+            b38_project_subset.append(b38_proj)
         for b37_proj in b37_project:
+            b37_projects.append(b37_proj)
+            b37_project_dict[b37_proj["describe"]["name"]] = b37_proj["id"]
             qc_files = find_data("*QC*.xlsx", b37_proj["describe"]["id"])
+            print(qc_files)
+            print(f"Found {len(qc_files)} QC files in {b37_proj['id']}")
             if len(qc_files) > 1:
                 print(
                     f"\n{len(qc_files)} QC files found in {b37_proj['id']}. "
@@ -195,11 +217,17 @@ def get_qc_files(b38_projects):
                 qc_file = max(
                     qc_files, key=lambda x: x['describe']['created']
                 )
-            else:
+            elif len(qc_files) == 1:
                 qc_file = qc_files[0]
+            else:
+                print(f"No QC files found for this project: {b37_proj['id']}")
+                missing_projects.append(f"{b37_proj['describe']['name']}, {b37_proj['id']}, {b38_proj['describe']['name']}, {b38_proj['id']}")
+                continue
             all_qc_files.append(qc_file)
-
-    return all_qc_files
+    print(len(all_qc_files), "QC files found in total")
+    print(len(b37_projects), "b37 projects found in total")
+    print(b37_project_dict)
+    return all_qc_files, missing_projects, b38_project_subset
 
 
 def unarchive_qc_status_files(all_qc_files):
@@ -354,14 +382,15 @@ def get_sample_types(projects):
 def main():
     args = parse_args()
 
-    b38_projects = find_projects(args.assay, args.start, args.end)
+    b38_projects = find_projects(args.assay)
     projects_to_print = '\n\t'.join([
         f"{x['describe']['name']} - {x['id']}" for x in b38_projects
     ])
     print(f"\n{len(b38_projects)} projects found:\n\t{projects_to_print}")
 
     # Get QC status files from b37 projects and read them in
-    all_qc_files = get_qc_files(b38_projects)
+    all_qc_files, missing_projects, b38_project_subset = get_qc_files(b38_projects, args.start, args.end)
+    print(all_qc_files)
     unarchive_qc_status_files(all_qc_files)
     merged_qc_file_df = read_in_qc_files_to_df(all_qc_files)
 
@@ -371,7 +400,7 @@ def main():
     print("\n".join(sample for sample in fail_sample_names))
 
     # Get validation and duplicated samples
-    non_validation_samples, validation_samples = get_sample_types(b38_projects)
+    non_validation_samples, validation_samples = get_sample_types(b38_project_subset)
 
     # Check duplicated samples from all b38 folders
     sample_names = [item['sample'] for item in non_validation_samples]
@@ -381,6 +410,14 @@ def main():
     ]
     print("\nDuplicated_samples:")
     print("\n".join(sample for sample in duplicated_samples))
+
+    # Create a list of all missing projects
+    if missing_projects:
+        print(f"Outputting missing projects to file: {args.outfile_prefix}_missing_projects.txt")
+        # output file
+        with open(f"{args.outfile_prefix}_missing_projects.txt", "w") as f:
+            for missing_project in missing_projects:
+                f.write(f"{missing_project}\n")
 
     # Create dfs
     df_validation_samples = pd.DataFrame(validation_samples)
