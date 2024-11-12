@@ -47,6 +47,25 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "-n",
+        "--number_of_projects",
+        type=int,
+        help="Number of the most recent projects to use",
+    )
+
+    parser.add_argument(
+        "-r",
+        "--run_mode",
+        choices=['find_qc', 'no_qc'],
+        required=True,
+        help=(
+            "Runmode - either 'internal' where QC status files are "
+            "searched for and used to find failed samples, or 'Medicover'"
+            "where no QC status files are searched for"
+        )
+    )
+
+    parser.add_argument(
         "-o",
         "--outfile_prefix",
         type=str,
@@ -57,7 +76,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def find_projects(project_name, start=None, end=None):
+def find_projects(project_name, start=None, end=None, number_of_projects=None):
     """
     Find DNANexus projects by name
 
@@ -69,6 +88,10 @@ def find_projects(project_name, start=None, end=None):
         start date to look for projects from
     end: str (optional)
         end date to look for projects until
+    number_of_projects : int (optional)
+        Number of projects to use. If set, takes most recent projects based
+        on the date in the project name rather than creation date.
+        Defaults to None.
 
     Returns
     -------
@@ -84,6 +107,10 @@ def find_projects(project_name, start=None, end=None):
             describe=True
         )
     )
+
+    projects = sorted(projects, key=lambda x: x["describe"]["name"])
+    if number_of_projects is not None:
+        projects = projects[-int(number_of_projects) :]
 
     return projects
 
@@ -187,17 +214,20 @@ def get_qc_files(b38_projects):
 
         for b37_proj in b37_project:
             qc_files = find_data("*QC*.xlsx", b37_proj["describe"]["id"])
-            if len(qc_files) > 1:
-                print(
-                    f"\n{len(qc_files)} QC files found in {b37_proj['id']}. "
-                    "Taking latest QC status file"
-                )
-                qc_file = max(
-                    qc_files, key=lambda x: x['describe']['created']
-                )
+            if not qc_files:
+                print("No QC files found in", b37_proj['id'])
             else:
-                qc_file = qc_files[0]
-            all_qc_files.append(qc_file)
+                if len(qc_files) > 1:
+                    print(
+                        f"\n{len(qc_files)} QC files found in {b37_proj['id']}. "
+                        "Taking latest QC status file"
+                    )
+                    qc_file = max(
+                        qc_files, key=lambda x: x['describe']['created']
+                    )
+                else:
+                    qc_file = qc_files[0]
+                all_qc_files.append(qc_file)
 
     return all_qc_files
 
@@ -284,6 +314,42 @@ def get_failed_samples(qc_status_df):
     return fail_sample_names
 
 
+def find_vcf_files(projects):
+    """
+    Find VCF files in a project
+
+    Parameters
+    ----------
+    project_id : str
+        DX project ID
+
+    Returns
+    -------
+    vcf_files : list
+        list of dicts, each representing a VCF file in DX
+    """
+    all_sample_vcfs = []
+    for project in projects:
+        vcf_files = find_data(
+            "*_markdup_recalibrated_Haplotyper.vcf.gz", project['id']
+        )
+
+        for vcf_file in vcf_files:
+            file_id = vcf_file["describe"]["id"]
+            sample_name = vcf_file['describe']['name'].split(
+                "-TwistWE"
+            )[0].replace('_Wdh', '').replace('_Wdh2', '').replace('_Whd3', '')
+            all_sample_vcfs.append(
+                {
+                    "sample": sample_name,
+                    "project": project["describe"]["id"],
+                    "file_id": file_id
+                }
+            )
+
+    return all_sample_vcfs
+
+
 def get_sample_types(projects):
     """
     Get validation and non-validation samples
@@ -316,11 +382,11 @@ def get_sample_types(projects):
             file_id = vcf["describe"]["id"]
 
             if (
-                re.match(r"^\d{9}$", instrument_id)
-                or re.match(r"^[X]\d{6}$", instrument_id)
+                re.match(r"^\d{9}$", instrument_id, re.IGNORECASE)
+                or re.match(r"^[X]\d{6}$", instrument_id, re.IGNORECASE)
             ) and (
-                re.match(r"^[G][M]\d{7}$", sample_id)
-                or re.match(r"^\d{5}[R]\d{4}$", sample_id)
+                re.match(r"^[G][M]\d{6,7}$", sample_id, re.IGNORECASE)
+                or re.match(r"^\d{5}[R]\d{4}$", sample_id, re.IGNORECASE)
             ):
                 all_non_validation_samples.append(
                     {
@@ -332,7 +398,6 @@ def get_sample_types(projects):
                 non_validation_samples_in_run.append(
                     instrument_id + "-" + sample_id
                 )
-
             else:
                 all_validation_samples.append(
                     {
@@ -354,72 +419,136 @@ def get_sample_types(projects):
 def main():
     args = parse_args()
 
-    b38_projects = find_projects(args.assay, args.start, args.end)
+    # Find projects using assay name and optional date range / number
+    b38_projects = find_projects(
+        args.assay, args.start, args.end, args.number_of_projects
+    )
     projects_to_print = '\n\t'.join([
         f"{x['describe']['name']} - {x['id']}" for x in b38_projects
     ])
     print(f"\n{len(b38_projects)} projects found:\n\t{projects_to_print}")
 
-    # Get QC status files from b37 projects and read them in
-    all_qc_files = get_qc_files(b38_projects)
-    unarchive_qc_status_files(all_qc_files)
-    merged_qc_file_df = read_in_qc_files_to_df(all_qc_files)
+    if args.run_mode == 'find_qc':
+        # Get QC status files from b37 projects and read them in
+        all_qc_files = get_qc_files(b38_projects)
+        unarchive_qc_status_files(all_qc_files)
+        merged_qc_file_df = read_in_qc_files_to_df(all_qc_files)
 
-    # Get any failed samples from QC status reports
-    fail_sample_names = get_failed_samples(merged_qc_file_df)
-    print("\nFailed samples:")
-    print("\n".join(sample for sample in fail_sample_names))
+        # Get any failed samples from QC status reports
+        fail_sample_names = get_failed_samples(merged_qc_file_df)
+        print("\nFailed samples:")
+        print("\n".join(sample for sample in fail_sample_names))
 
-    # Get validation and duplicated samples
-    non_validation_samples, validation_samples = get_sample_types(b38_projects)
+        # Get validation and non-validation samples
+        non_validation_samples, validation_samples = get_sample_types(
+            b38_projects
+        )
+        print(
+            f"Found {len(non_validation_samples)} non-validation samples"
+            " total"
+        )
 
-    # Check duplicated samples from all b38 folders
-    sample_names = [item['sample'] for item in non_validation_samples]
-    duplicated_samples = [
-        item for item, count in Counter(sample_names).items()
-        if count > 1
-    ]
-    print("\nDuplicated_samples:")
-    print("\n".join(sample for sample in duplicated_samples))
+        # Check duplicated samples from all b38 folders
+        sample_names = [item['sample'] for item in non_validation_samples]
+        duplicated_samples = [
+            item for item, count in Counter(sample_names).items()
+            if count > 1
+        ]
+        print("\nSamples duplicated across runs:")
+        print("\n".join(sample for sample in duplicated_samples))
 
-    # Create dfs
-    df_validation_samples = pd.DataFrame(validation_samples)
-    df_all_non_validation_samples = pd.DataFrame(non_validation_samples)
-    df_validation_samples.to_csv(
-        f"{args.outfile_prefix}_validation_samples.csv", index=False
-    )
+        df_all_non_validation_samples = pd.DataFrame(non_validation_samples)
 
-    # Drop the duplicated samples and keep once
-    df_non_duplicated = df_all_non_validation_samples.drop_duplicates(
-        subset=["sample"], keep="last"
-    )
-    df_non_duplicated.reset_index(drop=True, inplace=True)
-    print(
-        f"\n{len(df_all_non_validation_samples)} non-validation samples found"
-    )
-    print(
-        f"{len(df_non_duplicated)} non-duplicated non-validation samples "
-        "found"
-    )
+        print("Removing failed samples")
+        non_failed_non_validation = df_all_non_validation_samples[
+            ~df_all_non_validation_samples['sample'].isin(fail_sample_names)
+        ]
+        print(
+            f"\n{len(non_failed_non_validation)} non-validation samples "
+            "remain after removing failed samples"
+        )
 
-    # Get list of non-failed non-validation samples to merge
-    print("Removing failed samples")
-    df_file_to_merge = df_non_duplicated[
-        ~df_non_duplicated['sample'].isin(fail_sample_names)
-    ]
-    df_file_to_merge.to_csv(
-        f"{args.outfile_prefix}_files_to_merge.txt", sep="\t", header=False
-    )
-    print("Number of final VCF files to merge:", len(df_file_to_merge))
+        # Create CSV of validation samples to check
+        df_validation_samples = pd.DataFrame(validation_samples)
+        df_validation_samples.to_csv(
+            f"{args.outfile_prefix}_validation_samples.csv", index=False
+        )
 
-    # Simple check we don't have any failed or duplicated samples left
-    for fail_sample in fail_sample_names:
-        if fail_sample in list(df_file_to_merge["sample"]):
-            print(f"Failed file found: {fail_sample}")
+        # Drop the duplicated samples and keep once
+        df_non_duplicated = non_failed_non_validation.drop_duplicates(
+            subset=["sample"], keep="last"
+        )
+        df_non_duplicated.reset_index(drop=True, inplace=True)
+        print(
+            f"{len(df_non_duplicated)} samples remain after removing "
+            "duplicates"
+        )
 
-    for dup_sample in duplicated_samples:
-        if dup_sample in list(df_file_to_merge["sample"]):
-            print(f"Duplicated sample found: {dup_sample}")
+        # Get list of non-failed non-validation samples to merge
+        df_non_duplicated.to_csv(
+            f"{args.outfile_prefix}_files_to_merge.txt", sep="\t", header=False
+        )
+        print("Number of final VCF files to merge:", len(df_non_duplicated))
+
+        # Simple check we don't have any failed or duplicated samples left
+        for fail_sample in fail_sample_names:
+            if fail_sample in list(df_non_duplicated["sample"]):
+                print(f"Failed file found: {fail_sample}")
+
+    else:
+        all_sample_vcfs = find_vcf_files(b38_projects)
+        print(f"\nFound {len(all_sample_vcfs)} VCF files total")
+
+        samples_df = pd.DataFrame(all_sample_vcfs)
+        print(
+            f"These VCFs are for {len(list(samples_df['sample'].unique()))} "
+            "unique samples"
+        )
+
+        # Find all samples with duplicates and write to CSV
+        all_dups = samples_df[
+            samples_df.duplicated(subset=['sample'], keep=False)
+        ].sort_values(by='sample')
+        print(
+            f"\nThere are {len(list(all_dups['sample'].unique()))} unique "
+            "samples which are duplicated")
+        all_dups.to_csv(
+            f"{args.outfile_prefix}_all_dup_rows.txt", index=False, sep='\t'
+        )
+
+        # Find duplicate samples within a run and write out to CSV
+        dups_by_run = samples_df[
+            samples_df.duplicated(subset=['sample', 'project'], keep=False)
+        ].sort_values(by='sample')
+        dups_by_run.to_csv(
+            f'{args.outfile_prefix}_dups_by_run.txt', index=False, sep='\t'
+        )
+        print(
+            f"\nThere are {len(list(dups_by_run['sample'].unique()))} samples "
+            "duplicated within a run"
+        )
+
+        # Find duplicate samples across runs and write out to CSV
+        dups = samples_df.drop_duplicates()
+        mask = dups.duplicated(subset=['sample'], keep=False)
+        dups_across_projects = dups[mask].sort_values(by='sample')
+        dups_across_projects.to_csv(
+            f'{args.outfile_prefix}_dups_across_projects.txt',
+            index=False,
+            sep='\t'
+        )
+        print(
+            f"There are {len(list(dups_across_projects['sample'].unique()))} "
+            "samples duplicated across runs"
+        )
+
+        no_dups = samples_df.drop_duplicates(subset=['sample'], keep=False)
+        print(
+            f"\nTotal non-duplicated samples to merge: {len(no_dups)}"
+        )
+        no_dups.to_csv(
+            f"{args.outfile_prefix}_files_to_merge.txt", index=False, sep='\t'
+        )
 
 
 if __name__ == '__main__':
