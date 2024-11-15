@@ -199,16 +199,13 @@ def get_qc_files(b38_projects, start=None, end=None):
         )
         run_name = f"002_{folder_002}*"
         b37_project = find_projects(run_name, start, end)
-        if not b37_project:
-            continue
-        else:
-            b38_project_subset.append(b38_proj)
-        for b37_proj in b37_project:
-            b37_projects.append(b37_proj)
-            b37_project_dict[b37_proj["describe"]["name"]] = b37_proj["id"]
+
+        for i, b37_proj in enumerate(b37_project):
+            if i > 0:
+                print("More than one b37 project found")
+                sys.exit() # checks if multiple b37 projects are found.
             qc_files = find_data("*QC*.xlsx", b37_proj["describe"]["id"])
-            print(qc_files)
-            print(f"Found {len(qc_files)} QC files in {b37_proj['id']}")
+            print(f"Found {len(qc_files)} QC files in {b37_proj['id']} - {b37_proj["describe"]['name']}")
             if len(qc_files) > 1:
                 print(
                     f"\n{len(qc_files)} QC files found in {b37_proj['id']}. "
@@ -217,16 +214,30 @@ def get_qc_files(b38_projects, start=None, end=None):
                 qc_file = max(
                     qc_files, key=lambda x: x['describe']['created']
                 )
+                # Append the b38 project to the subset list of projects
+                # that have corresponding b37 projects and QC file.
+                b38_project_subset.append(b38_proj)
+                # Append the b37 project to the list of b37 projects
+                # that have QC files.
+                b37_projects.append(b37_proj)
+                b37_project_dict[b37_proj["describe"]["name"]] = b37_proj["id"]
             elif len(qc_files) == 1:
                 qc_file = qc_files[0]
+                # Append the b38 project to the subset list of projects
+                # that have corresponding b37 projects and QC file.
+                b38_project_subset.append(b38_proj)
+                # Append the b37 project to the list of b37 projects
+                # that have QC files.
+                b37_projects.append(b37_proj)
+                b37_project_dict[b37_proj["describe"]["name"]] = b37_proj["id"]
             else:
-                print(f"No QC files found for this project: {b37_proj['id']}")
+                print(f"No QC files found for this project: {b37_proj['id']} - {b37_proj["describe"]['name']}")
                 missing_projects.append(f"{b37_proj['describe']['name']}, {b37_proj['id']}, {b38_proj['describe']['name']}, {b38_proj['id']}")
                 continue
             all_qc_files.append(qc_file)
     print(len(all_qc_files), "QC files found in total")
     print(len(b37_projects), "b37 projects found in total")
-    print(b37_project_dict)
+
     return all_qc_files, missing_projects, b38_project_subset
 
 
@@ -344,11 +355,11 @@ def get_sample_types(projects):
             file_id = vcf["describe"]["id"]
 
             if (
-                re.match(r"^\d{9}$", instrument_id)
-                or re.match(r"^[X]\d{6}$", instrument_id)
+                re.match(r"^\d{9}$", instrument_id, re.IGNORECASE)
+                or re.match(r"^[X]\d{6}$", instrument_id, re.IGNORECASE)
             ) and (
-                re.match(r"^[G][M]\d{7}$", sample_id)
-                or re.match(r"^\d{5}[R]\d{4}$", sample_id)
+                re.match(r"^[G][M]\d{6,7}$", sample_id, re.IGNORECASE)
+                or re.match(r"^\d{5}[R]\d{4}$", sample_id, re.IGNORECASE)
             ):
                 all_non_validation_samples.append(
                     {
@@ -390,7 +401,7 @@ def main():
 
     # Get QC status files from b37 projects and read them in
     all_qc_files, missing_projects, b38_project_subset = get_qc_files(b38_projects, args.start, args.end)
-    print(all_qc_files)
+
     unarchive_qc_status_files(all_qc_files)
     merged_qc_file_df = read_in_qc_files_to_df(all_qc_files)
 
@@ -441,6 +452,7 @@ def main():
 
     # Get list of non-failed non-validation samples to merge
     print("Removing failed samples")
+    print(f"List of failed samples:\n{fail_sample_names}")
     df_file_to_merge = df_non_duplicated[
         ~df_non_duplicated['sample'].isin(fail_sample_names)
     ]
