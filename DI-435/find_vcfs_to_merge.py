@@ -182,7 +182,7 @@ def get_qc_files(b38_projects, start=None, end=None):
     all_qc_files : list
         list of dicts, each representing a QC status file in DX
     missing_projects : list
-        list of missing projects
+        list of projects that are missing QC files
     b38_project_subset : list
         list of b38 projects that have corresponding b37 projects
     """
@@ -205,7 +205,10 @@ def get_qc_files(b38_projects, start=None, end=None):
                 print("More than one b37 project found")
                 sys.exit() # checks if multiple b37 projects are found.
             qc_files = find_data("*QC*.xlsx", b37_proj["describe"]["id"])
-            print(f"Found {len(qc_files)} QC files in {b37_proj['id']} - {b37_proj["describe"]['name']}")
+            print(
+                f"Found {len(qc_files)} QC files in {b37_proj['id']} - "
+                f"{b37_proj['describe']['name']}"
+            )
             if len(qc_files) > 1:
                 print(
                     f"\n{len(qc_files)} QC files found in {b37_proj['id']}. "
@@ -231,8 +234,14 @@ def get_qc_files(b38_projects, start=None, end=None):
                 b37_projects.append(b37_proj)
                 b37_project_dict[b37_proj["describe"]["name"]] = b37_proj["id"]
             else:
-                print(f"No QC files found for this project: {b37_proj['id']} - {b37_proj["describe"]['name']}")
-                missing_projects.append(f"{b37_proj['describe']['name']}, {b37_proj['id']}, {b38_proj['describe']['name']}, {b38_proj['id']}")
+                print(
+                    f"No QC files found for this project: "
+                    f"{b37_proj['id']} - {b37_proj['describe']['name']}"
+                )
+                missing_projects.append(
+                    f"{b37_proj['describe']['name']}, {b37_proj['id']}, "
+                    f"{b38_proj['describe']['name']}, {b38_proj['id']}"
+                )
                 continue
             all_qc_files.append(qc_file)
     print(len(all_qc_files), "QC files found in total")
@@ -400,7 +409,9 @@ def main():
     print(f"\n{len(b38_projects)} projects found:\n\t{projects_to_print}")
 
     # Get QC status files from b37 projects and read them in
-    all_qc_files, missing_projects, b38_project_subset = get_qc_files(b38_projects, args.start, args.end)
+    all_qc_files, missing_projects, b38_project_subset = get_qc_files(
+        b38_projects, args.start, args.end
+        )
 
     unarchive_qc_status_files(all_qc_files)
     merged_qc_file_df = read_in_qc_files_to_df(all_qc_files)
@@ -424,9 +435,13 @@ def main():
 
     # Create a list of all missing projects
     if missing_projects:
-        print(f"Outputting missing projects to file: {args.outfile_prefix}_missing_projects.txt")
+        missing_project_filename = f"{args.outfile_prefix}_projects_missing_QC.txt"
+        print(
+            f"Outputting projects missing QC files: "
+            f"{missing_project_filename}"
+        )
         # output file
-        with open(f"{args.outfile_prefix}_missing_projects.txt", "w") as f:
+        with open(missing_project_filename, "w") as f:
             for missing_project in missing_projects:
                 f.write(f"{missing_project}\n")
 
@@ -452,7 +467,6 @@ def main():
 
     # Get list of non-failed non-validation samples to merge
     print("Removing failed samples")
-    print(f"List of failed samples:\n{fail_sample_names}")
     df_file_to_merge = df_non_duplicated[
         ~df_non_duplicated['sample'].isin(fail_sample_names)
     ]
