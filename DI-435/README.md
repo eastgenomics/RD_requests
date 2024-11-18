@@ -5,10 +5,14 @@ This folder holds code to create an internal GRCh38 POP AF VCF based for [EBH-43
 
 ### Python script to find VCFs
 The Python script `find_vcfs_to_merge.py` takes inputs:
-- `-a --assay`: The project prefix to look for in DNAnexus, e.g. `"*CEN38"`
-- `-o --outfile_prefix`: What to name the output TSV file which lists VCF files to merge
-- `-s --start (optional)`: A date used to find DNAnexus (GRCh37) projects created after
-- `-e --end (optional)`: A date used to find DNAnexus (GRCh37) projects created before
+- `-a --assay`: The project prefix to look for in DNAnexus, e.g. `"*CEN38"`.
+- `-o --outfile_prefix`: What to name the output TSV file which lists VCF files to merge.
+- `-s --start (optional)`: A date used to find DNAnexus (GRCh37) projects created after, see searching dates section below.
+- `-e --end (optional)`: A date used to find DNAnexus (GRCh37) projects created before, see searching dates section below.
+
+**Searching Dates**
+These dates restrict the projects collated to only GRCh38 projects
+which have corresponding GRCh37 projects which were created within the specified dates.
 
 Example Python script command:
 `python3 find_vcfs_to_merge.py --assay "*CEN38" --end 2024-05-03 --outfile_prefix CEN38`
@@ -16,6 +20,7 @@ Example Python script command:
 Output:
 - A TSV listing the VCF files for all non-validation samples to merge (named by `{outfile_prefix}_files_to_merge.txt`)
 - A CSV of all validation samples found (`{outfile_prefix}_validation_samples.csv`)
+- A CSV of all projects within search but missing QC file in DNAnexus and therefore not included (`{outfile_prefix}_projects_missing_QC.csv`).
 
 How the script works:
 1. Finds all DNAnexus projects with suffix `--assay`.

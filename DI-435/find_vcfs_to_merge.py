@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
         "--start",
         type=str,
         default=None,
-        help="Start date to search for projects",
+        help="Start date to search for corresponding b37 projects",
     )
 
     parser.add_argument(
@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
         "--end",
         type=str,
         default=None,
-        help="End date to search for projects",
+        help="End date to search for corresponding b37 projects",
     )
 
     parser.add_argument(
@@ -238,10 +238,13 @@ def get_qc_files(b38_projects, start=None, end=None):
                     f"No QC files found for this project: "
                     f"{b37_proj['id']} - {b37_proj['describe']['name']}"
                 )
-                missing_projects.append(
-                    f"{b37_proj['describe']['name']}, {b37_proj['id']}, "
-                    f"{b38_proj['describe']['name']}, {b38_proj['id']}"
-                )
+                missing_project_info = {
+                    "b37_project_name": b37_proj["describe"]["name"],
+                    "b37_project_id": b37_proj["id"],
+                    "b38_project_name": b38_proj["describe"]["name"],
+                    "b38_project_id": b38_proj["id"]
+                }
+                missing_projects.append(missing_project_info)
                 continue
             all_qc_files.append(qc_file)
     print(len(all_qc_files), "QC files found in total")
@@ -437,15 +440,14 @@ def main():
 
     # Create a list of all missing projects
     if missing_projects:
-        missing_projects_filename = f"{args.outfile_prefix}_projects_missing_QC.txt"
+        missing_projects_filename = f"{args.outfile_prefix}_projects_missing_QC.csv"
         print(
             f"Outputting projects missing QC files: "
             f"{missing_projects_filename}"
         )
-        # output file
-        with open(missing_projects_filename, "w") as f:
-            for missing_project in missing_projects:
-                f.write(f"{missing_project}\n")
+        # convert list to pd.DataFrame and then CSV output.
+        df_missing_projects = pd.DataFrame(missing_projects)
+        df_missing_projects.to_csv(missing_projects_filename, index=False)
 
     # Create dfs
     df_validation_samples = pd.DataFrame(validation_samples)
