@@ -1,26 +1,51 @@
 ## Find and merge VCFs for creation of a 38 POP AF VCF
 
 ### Description
-This folder holds code to create an internal GRCh38 POP AF VCF [EBH-435](https://cuhbioinformatics.atlassian.net/browse/DI-435).
+This folder holds code to create an internal GRCh38 POP AF VCF [EBH-435](https://cuhbioinformatics.atlassian.net/browse/DI-435). There are 2 modes implemented, one to search for GRCh38 projects and find the related GRCh37 project to retrieve the QC status file and remove failed samples and keep only the first instance of a duplicated sample. The second mode does not search for QC status files but removes all samples with duplicates.
 
 ### Python script to find VCFs
-The Python script `find_vcfs_to_merge.py` takes inputs:
-- `-a --assay`: The project prefix to look for in DNAnexus, e.g. `"*CEN38"`
-- `-o --outfile_prefix`: What to name the output TSV file which lists VCF files to merge
-- `-r --run_mode`: A choice of whether to find QC status files ('find_qc') or not ('no_qc'). no_qc would be used as an input when searching Medicover projects
-- `-s --start (optional)`: A date used to find DNAnexus projects created after
-- `-e --end (optional)`: A date used to find DNAnexus projects created before
-- `-n --number_of_projects (optional)`: The number of most recent projects to keep
+#### Usage
+Example command for CEN to find QC status files:
+```
+python3 find_vcfs_to_merge.py \
+    --assay "*CEN38" \
+    --outfile_prefix CEN38 \
+    --run_mode find_qc
+```
+Example command for TWE to find QC status files:
+```
+python3 find_vcfs_to_merge.py \
+    --assay "*TWE38" \
+    --outfile_prefix TWE38 \
+    --run_mode find_qc
+```
 
-Example Python script command for CEN to find QC status files:
-`python3 find_vcfs_to_merge.py --assay "*CEN38" --end 2024-05-03 --outfile_prefix CEN38 --run_mode find_qc`
+Example command for Medicover with no QC status files:
+```
+python3 find_vcfs_to_merge.py \
+    --assay "*TWE38M" \
+    --outfile_prefix TWE38M \
+    --run_mode no_qc
+```
 
-Example Python script command for Medicover:
-`python3 find_vcfs_to_merge.py --assay "*TWE38M"--outfile_prefix TWE38M --run_mode no_qc`
+#### Inputs
+- `-a --assay`: The project prefix to look for in DNAnexus, e.g. `"*CEN38"`.
+- `-o --outfile_prefix`: What to name the output TSV file which lists VCF files to merge.
+- `-s --start (optional)`: A date used to find DNAnexus (GRCh37) projects created after, see searching dates section below.
+- `-e --end (optional)`: A date used to find DNAnexus (GRCh37) projects created before, see searching dates section below.
+- `-r --run_mode`: A choice of whether to find QC status files ('find_qc') or not ('no_qc').
 
-How the script works in `find_qc` mode:
-1. Finds all DNAnexus projects with suffix `--assay` and between `--start` and `--end` dates (if provided) and then, if `--number_of_projects` is given, subsets this to the last n runs.
-2. Finds the related GRCh37 project for each of these projects and reads in all of the QC status files into one merged dataframe. If multiple QC status files exist in a project, the one created last is used.
+**Searching Dates**
+These dates restrict the projects collated to only GRCh38 projects which have corresponding GRCh37 projects which were created within the specified dates.
+
+#### Outputs
+- A TSV listing the VCF files for all non-validation samples to merge (named by `{outfile_prefix}_files_to_merge.txt`)
+- A CSV of all validation samples found (`{outfile_prefix}_validation_samples.csv`)
+- A CSV of all projects within search but missing QC file in DNAnexus and therefore not included (`{outfile_prefix}_projects_missing_QC.csv`).
+
+How the script works:
+1. Finds all DNAnexus projects with suffix `--assay`.
+2. Finds the related GRCh37 project (and between `--start` and `--end` dates, if provided) for each of these projects and reads in all of the QC status files into one merged dataframe. If multiple QC status files exist in a project, the one created last is used.
 3. Finds all raw VCFs in each of the DNAnexus projects.
 4. Splits these VCFs into a list of validation (including control) samples and non-validation samples based on naming conventions
 5. Removes the first instance of a sample which is duplicated or any which failed QC at any time based on information within the QC status files.
