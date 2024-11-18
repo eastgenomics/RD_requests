@@ -510,43 +510,19 @@ def main():
             samples_df.duplicated(subset=['sample'], keep=False)
         ].sort_values(by='sample')
         print(
-            f"\nThere are {len(list(all_dups['sample'].unique()))} unique "
+            f"\nThere are {len(list(all_dups['sample'].unique()))} "
             "samples which are duplicated")
         all_dups.to_csv(
             f"{args.outfile_prefix}_all_dup_rows.txt", index=False, sep='\t'
         )
 
-        # Find duplicate samples within a run and write out to CSV
-        dups_by_run = samples_df[
-            samples_df.duplicated(subset=['sample', 'project'], keep=False)
-        ].sort_values(by='sample')
-        dups_by_run.to_csv(
-            f'{args.outfile_prefix}_dups_by_run.txt', index=False, sep='\t'
+        final_no_dups = samples_df.drop_duplicates(
+            subset=['sample'], keep=False
         )
         print(
-            f"\nThere are {len(list(dups_by_run['sample'].unique()))} samples "
-            "duplicated within a run"
+            f"\nTotal non-duplicated samples to merge: {len(final_no_dups)}"
         )
-
-        # Find duplicate samples across runs and write out to CSV
-        dups = samples_df.drop_duplicates()
-        mask = dups.duplicated(subset=['sample'], keep=False)
-        dups_across_projects = dups[mask].sort_values(by='sample')
-        dups_across_projects.to_csv(
-            f'{args.outfile_prefix}_dups_across_projects.txt',
-            index=False,
-            sep='\t'
-        )
-        print(
-            f"There are {len(list(dups_across_projects['sample'].unique()))} "
-            "samples duplicated across runs"
-        )
-
-        no_dups = samples_df.drop_duplicates(subset=['sample'], keep=False)
-        print(
-            f"\nTotal non-duplicated samples to merge: {len(no_dups)}"
-        )
-        no_dups.to_csv(
+        final_no_dups.to_csv(
             f"{args.outfile_prefix}_files_to_merge.txt", index=False, sep='\t'
         )
 
