@@ -203,7 +203,7 @@ def get_qc_files(b38_projects, start=None, end=None):
         for i, b37_proj in enumerate(b37_project):
             if i > 0:
                 print("More than one b37 project found")
-                sys.exit() # checks if multiple b37 projects are found.
+                sys.exit()  # checks if multiple b37 projects are found.
             qc_files = find_data("*QC*.xlsx", b37_proj["describe"]["id"])
             print(
                 f"Found {len(qc_files)} QC files in {b37_proj['id']} - "
@@ -411,7 +411,7 @@ def main():
     # Get QC status files from b37 projects and read them in
     all_qc_files, missing_projects, b38_project_subset = get_qc_files(
         b38_projects, args.start, args.end
-        )
+    )
 
     unarchive_qc_status_files(all_qc_files)
     merged_qc_file_df = read_in_qc_files_to_df(all_qc_files)
@@ -422,7 +422,9 @@ def main():
     print("\n".join(sample for sample in fail_sample_names))
 
     # Get validation and duplicated samples
-    non_validation_samples, validation_samples = get_sample_types(b38_project_subset)
+    non_validation_samples, validation_samples = get_sample_types(
+        b38_project_subset
+        )
 
     # Check duplicated samples from all b38 folders
     sample_names = [item['sample'] for item in non_validation_samples]
@@ -435,13 +437,13 @@ def main():
 
     # Create a list of all missing projects
     if missing_projects:
-        missing_project_filename = f"{args.outfile_prefix}_projects_missing_QC.txt"
+        missing_projects_filename = f"{args.outfile_prefix}_projects_missing_QC.txt"
         print(
             f"Outputting projects missing QC files: "
-            f"{missing_project_filename}"
+            f"{missing_projects_filename}"
         )
         # output file
-        with open(missing_project_filename, "w") as f:
+        with open(missing_projects_filename, "w") as f:
             for missing_project in missing_projects:
                 f.write(f"{missing_project}\n")
 
