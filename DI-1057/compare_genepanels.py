@@ -182,7 +182,11 @@ def main():
     )
     args = parser.parse_args()
 
-    new_df = read_gene_panel(args.new_file_id)
+    try:
+        new_df = read_gene_panel(args.new_file_id)
+    except Exception as e:
+        print(f"Error reading new gene panel: {e}")
+        return
     old_df = read_gene_panel(args.old_file_id)
 
     # Compare Rcodes and get the Rcodes present in the new file
