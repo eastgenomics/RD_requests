@@ -68,13 +68,14 @@ cd ..
 bgzip merged.vcf
 bcftools index merged.vcf.gz
 
-Final merging and processing
+# Final merging and processing
 echo "Final processing"
 command="bcftools norm -m -any -f ${genome} -Ou merged.vcf.gz"
 command="${command} | bcftools +fill-tags --output-type v -o merge_tag.vcf -- -t AN,AC,NS,AF,MAF,AC_Hom,AC_Het,AC_Hemi"
 command="${command} ; bcftools sort merge_tag.vcf -Oz > final_merged_${job}.vcf.gz"
 command="${command} ; tabix -p vcf final_merged_${job}.vcf.gz"
 eval "$command"
+
 dx upload "final_merged_${job}.vcf.gz"
 dx upload "final_merged_${job}.vcf.gz.tbi"
 dx terminate "${job}"
