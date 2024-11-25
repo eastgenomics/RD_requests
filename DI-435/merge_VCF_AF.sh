@@ -9,10 +9,17 @@ input_file=$1
 genome=$2
 
 job="${DX_JOB_ID}"
+num_proc="$(grep -c ^processor /proc/cpuinfo)"
 
 # Check if the input file exists and is not empty
 if [ ! -s "$input_file" ]; then
     echo "ERROR: Input file '$input_file' is empty or does not exist!"
+    exit 1
+fi
+
+# Validate if the job ID is set and length is not zero
+if [ -z "$job" ]; then
+    echo "ERROR: DNAnexus job ID is not set!"
     exit 1
 fi
 
@@ -47,11 +54,11 @@ while IFS=$'\t' read -r _ _ field3 field4 _; do
 done < "$input_file"
 
 echo "Downloading files"
-echo "${project_files[@]}" | tr ' ' '\n' | xargs -n 1 -P 4 -I {} dx download --no-progress "{}"
+echo "${project_files[@]}" | tr ' ' '\n' | xargs -n 1 -P "${num_proc}" -I {} dx download --no-progress "{}"
 
 # Index VCFs
 echo "Indexing VCFs"
-echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P 4 -I {} bcftools index "{}"
+echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P "${num_proc}" -I {} bcftools index "{}"
 
 # Normalising VCFs
 mkdir norm
@@ -63,18 +70,16 @@ done
 # Indexing normalised VCFs
 echo "Indexing normalised VCFs"
 cd norm || exit
-echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P 4 -I {} bcftools index -f "{}"
+echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P "${num_proc}" -I {} bcftools index -f "{}"
 
 # Merging normalised VCFs
-echo "Merging normalised VCFs"
-merge_command="bcftools merge --output-type v -m none --missing-to-ref"
-# Add the VCF files names to the command
+echo "Collating normalised VCFs"
+vcf_files=()
 for vcf in *vcf.gz; do
-    merge_command="${merge_command} $vcf";
+    vcf_files+=("$vcf")
 done
-merge_command="${merge_command} > ../merged.vcf"
-echo "${merge_command}"
-eval "$merge_command"
+echo "Merging collated VCFs into ../merged.vcf"
+bcftools merge --output-type v -m none --missing-to-ref "${vcf_files[@]}" > ../merged.vcf
 
 # Bgzip and index merged VCF file
 echo "Bgzip and indexing merged file"
@@ -84,11 +89,16 @@ bcftools index merged.vcf.gz
 
 # Final merging and processing
 echo "Final processing"
-command="bcftools norm -m -any -f ${genome} -Ou merged.vcf.gz"
-command="${command} | bcftools +fill-tags --output-type v -o merge_tag.vcf -- -t AN,AC,NS,AF,MAF,AC_Hom,AC_Het,AC_Hemi"
-command="${command} ; bcftools sort merge_tag.vcf -Oz > final_merged_${job}.vcf.gz"
-command="${command} ; tabix -p vcf final_merged_${job}.vcf.gz"
-eval "$command"
+
+echo "Normalising merged VCF"
+bcftools norm -m -any -f "${genome}" -Ou merged.vcf.gz \
+    | bcftools +fill-tags --output-type v -o merge_tag.vcf -- -t AN,AC,NS,AF,MAF,AC_Hom,AC_Het,AC_Hemi
+
+echo "Sorting and compressing final VCF"
+bcftools sort merge_tag.vcf -Oz -o "final_merged_${job}.vcf.gz"
+
+echo "Indexing final VCF"
+tabix -p vcf "final_merged_${job}.vcf.gz"
 
 dx upload "final_merged_${job}.vcf.gz"
 dx upload "final_merged_${job}.vcf.gz.tbi"
