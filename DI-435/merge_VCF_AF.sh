@@ -3,16 +3,22 @@
 #
 # Inputs:
 #   $1 -> input file with VCF files to merge
-#   $2 -> DNAnexus job ID for cloud workstation
-#   $3 -> Reference genome file
+#   $2 -> Reference genome file
 
 input_file=$1
-job=$2
-genome=$3
+genome=$2
+
+job="${DX_JOB_ID}"
 
 # Check if the input file exists and is not empty
 if [ ! -s "$input_file" ]; then
-    echo "Input file is empty or does not exist."
+    echo "ERROR: Input file '$input_file' is empty or does not exist!"
+    exit 1
+fi
+
+# Validate genome file
+if [ ! -f "$genome" ]; then
+    echo "ERROR: Reference genome file '$genome' does not exist!"
     exit 1
 fi
 
@@ -20,47 +26,55 @@ fi
 project_files=()
 
 # Read the input file line by line and construct the project_file array
-
+# keep track of line number for error reporting
+line_number=0
 while IFS=$'\t' read -r _ _ field3 field4 _; do
+        ((line_number++))
+
+        # Validate fields are not empty
+        if [ -z "$field3" ] || [ -z "$field4" ]; then
+            echo "ERROR: Missing project or file ID at line $line_number"
+            exit 1
+        fi
+
+        # Validate field format (assuming they should match dx:// format)
+        if [[ ! "$field3" =~ ^project-* ]] || [[ ! "$field4" =~ ^file-* ]]; then
+            echo "ERROR: Invalid project or file ID format at line $line_number"
+            exit 1
+        fi
+
         project_files+=("${field3}:${field4}")
 done < "$input_file"
 
 echo "Downloading files"
-for i in "${project_files[@]}"; do
-    echo "Processing: $i"
-    dx download $i
-done
+echo "${project_files[@]}" | tr ' ' '\n' | xargs -n 1 -P 4 -I {} dx download --no-progress "{}"
 
 # Index VCFs
 echo "Indexing VCFs"
-for vcf in *vcf.gz; do
-    bcftools index "$vcf";
-done
+echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P 4 -I {} bcftools index "{}"
 
 # Normalising VCFs
 mkdir norm
 echo "Normalising VCFs"
 for vcf in *vcf.gz; do
-    bcftools norm -m -any -f "${genome}" -Oz "$vcf" > norm/"$vcf";
+    bcftools norm -m -any -f "${genome}" -Oz "${vcf}" > "norm/${vcf}"
 done
 
 # Indexing normalised VCFs
 echo "Indexing normalised VCFs"
 cd norm || exit
-for vcf in *vcf.gz; do
-    bcftools index -f "$vcf";
-done
+echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P 4 -I {} bcftools index -f "{}"
 
 # Merging normalised VCFs
 echo "Merging normalised VCFs"
-command="bcftools merge --output-type v -m none --missing-to-ref"
+merge_command="bcftools merge --output-type v -m none --missing-to-ref"
 # Add the VCF files names to the command
 for vcf in *vcf.gz; do
-    command="${command} $vcf";
+    merge_command="${merge_command} $vcf";
 done
-command="${command} > ../merged.vcf"
-echo "${command}"
-eval "$command"
+merge_command="${merge_command} > ../merged.vcf"
+echo "${merge_command}"
+eval "$merge_command"
 
 # Bgzip and index merged VCF file
 echo "Bgzip and indexing merged file"
@@ -76,6 +90,6 @@ command="${command} ; bcftools sort merge_tag.vcf -Oz > final_merged_${job}.vcf.
 command="${command} ; tabix -p vcf final_merged_${job}.vcf.gz"
 eval "$command"
 
-dx upload "final_merged_${job}.vcf.gz"
-dx upload "final_merged_${job}.vcf.gz.tbi"
-dx terminate "${job}"
+# dx upload "final_merged_${job}.vcf.gz"
+# dx upload "final_merged_${job}.vcf.gz.tbi"
+# dx terminate "${job}"
