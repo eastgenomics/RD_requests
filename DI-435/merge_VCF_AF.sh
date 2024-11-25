@@ -45,7 +45,7 @@ while IFS=$'\t' read -r _ _ field3 field4 _; do
         fi
 
         # Validate field format (assuming they should match dx:// format)
-        if [[ ! "$field3" =~ ^project-* ]] || [[ ! "$field4" =~ ^file-* ]]; then
+        if [[ ! "$field3" =~ ^project-.* ]] || [[ ! "$field4" =~ ^file-.* ]]; then
             echo "ERROR: Invalid project or file ID format at line $line_number"
             exit 1
         fi
