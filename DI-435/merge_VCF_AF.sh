@@ -90,6 +90,6 @@ command="${command} ; bcftools sort merge_tag.vcf -Oz > final_merged_${job}.vcf.
 command="${command} ; tabix -p vcf final_merged_${job}.vcf.gz"
 eval "$command"
 
-# dx upload "final_merged_${job}.vcf.gz"
-# dx upload "final_merged_${job}.vcf.gz.tbi"
-# dx terminate "${job}"
+dx upload "final_merged_${job}.vcf.gz"
+dx upload "final_merged_${job}.vcf.gz.tbi"
+dx terminate "${job}"
