@@ -126,7 +126,6 @@ def find_data(file_name, project_id):
             describe=True
         )
     )
-
     return files
 
 
@@ -265,7 +264,6 @@ def get_qc_files(b38_projects, start=None, end=None):
                 }
                 missing_projects.append(missing_project_info)
             all_qc_files.append(qc_file)
-
     print(len(all_qc_files), "QC files found in total")
     print(len(b37_projects), "b37 projects found in total")
 
@@ -449,6 +447,7 @@ def get_sample_types(projects):
                 non_validation_samples_in_run.append(
                     instrument_id + "-" + sample_id
                 )
+
             else:
                 all_validation_samples.append(
                     {

@@ -81,7 +81,6 @@ while IFS=$'\t' read -r _ field2 field3; do
 
 done < "$input_file"
 
-# Download VCFs in parallel
 echo "Downloading files"
 echo "${project_files[@]}" | tr ' ' '\n' | xargs -n 1 -P "${num_proc}" -I {} dx download --no-progress "{}"
 
@@ -97,7 +96,7 @@ find . -maxdepth 1 -name '*.vcf.gz' -print0 | xargs -0 -P "${num_proc}" -I{} bcf
 # Indexing normalised VCFs
 echo "Indexing normalised VCFs"
 cd norm || exit
-find . -maxdepth 1 -name '*.vcf.gz' -print0 | xargs -0 -P "${num_proc}" -I{} bcftools index -f "{}"
+echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P "${num_proc}" -I {} bcftools index -f "{}"
 
 # Merging normalised VCFs
 echo "Collating normalised VCFs"
