@@ -551,7 +551,9 @@ def main():
 
     else:
         all_sample_vcfs = find_vcf_files(b38_projects)
-        print(f"\nFound {len(all_sample_vcfs)} VCF files total")
+        print(
+            f"\nFound {len(all_sample_vcfs)} VCF files in GRCh38 projects"
+        )
 
         samples_df = pd.DataFrame(all_sample_vcfs)
         print(
@@ -565,9 +567,12 @@ def main():
         ].sort_values(by='sample')
         print(
             f"\nThere are {len(list(all_dups['sample'].unique()))} "
-            "samples which are duplicated")
+            "samples which have duplicate VCFs")
         all_dups.to_csv(
-            f"{args.outfile_prefix}_all_dup_rows.txt", index=False, sep='\t'
+            f"{args.outfile_prefix}_all_dups.txt",
+            index=False,
+            header=False,
+            sep='\t'
         )
 
         final_no_dups = samples_df.drop_duplicates(
@@ -577,7 +582,10 @@ def main():
             f"\nTotal non-duplicated samples to merge: {len(final_no_dups)}"
         )
         final_no_dups.to_csv(
-            f"{args.outfile_prefix}_files_to_merge.txt", index=False, sep='\t'
+            f"{args.outfile_prefix}_files_to_merge.txt",
+            index=False,
+            sep='\t',
+            header=False
         )
 
 
