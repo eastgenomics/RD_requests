@@ -551,7 +551,10 @@ def main():
 
         # Get list of non-failed non-validation samples to merge
         df_non_duplicated.to_csv(
-            f"{args.outfile_prefix}_files_to_merge.txt", sep="\t", header=False
+            f"{args.outfile_prefix}_files_to_merge.txt",
+            sep="\t",
+            header=False,
+            index=False
         )
         print("Number of final VCF files to merge:", len(df_non_duplicated))
 

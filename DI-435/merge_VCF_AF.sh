@@ -57,7 +57,7 @@ if [ ! -f "$genome" ]; then
     exit 1
 fi
 
-# Blank array to store the project files
+#blank array to store the project files
 project_files=()
 
 # Read the input file line by line and construct the project_file array
@@ -87,20 +87,20 @@ echo "${project_files[@]}" | tr ' ' '\n' | xargs -n 1 -P "${num_proc}" -I {} dx 
 
 # Index VCFs
 echo "Indexing VCFs"
-find . -maxdepth 1 -name '*.vcf.gz' -print0 | xargs -n 1 -P "${num_proc}" -I {} bcftools index "{}"
+echo *vcf.gz | tr ' ' '\n' | xargs -n 1 -P "${num_proc}" -I {} bcftools index "{}"
 
-# Normalise multiallelics and left align VCFs in parallel
-echo "Normalising VCFs"
+# Normalising VCFs
 mkdir -p norm
-find . -maxdepth 1 -name '*.vcf.gz' -print0 | xargs -n 1 -P "${num_proc}" -I{} bcftools norm -m -any -f "${genome}" -Oz "{}" -o norm/"$(basename {})"
+echo "Normalising VCFs"
+find . -maxdepth 1 -name '*.vcf.gz' -print0 | xargs -0 -P "${num_proc}" -I{} bcftools norm -m -any -f "${genome}" -Oz "{}" -o norm/"$(basename {})"
 
 # Indexing normalised VCFs
 echo "Indexing normalised VCFs"
 cd norm || exit
-find . -maxdepth 1 -name '*.vcf.gz' -print0 | xargs -0 -P8 -I{} bcftools index -f "{}"
+find . -maxdepth 1 -name '*.vcf.gz' -print0 | xargs -0 -P "${num_proc}" -I{} bcftools index -f "{}"
 
 # Merging normalised VCFs
-echo "Collating VCFs"
+echo "Collating normalised VCFs"
 file_prefix="${input_file%.txt}"
 vcf_files=()
 for vcf in *vcf.gz; do
@@ -111,7 +111,7 @@ echo "Merging collated VCFs into ../merged.vcf"
 bcftools merge --output-type v -m none --missing-to-ref "${vcf_files[@]}" > "../${file_prefix}_merged.vcf"
 
 # Bgzip and index merged VCF file
-echo "Bgzipping and indexing merged file"
+echo "Bgzip and indexing merged file"
 cd ..
 bgzip "${file_prefix}_merged.vcf"
 bcftools index "${file_prefix}_merged.vcf.gz"
