@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def find_projects(project_name, start=None, end=None, number_of_projects=None):
+def find_projects(project_name, start=None, end=None):
     """
     Find DNANexus projects by name
 
@@ -83,10 +83,6 @@ def find_projects(project_name, start=None, end=None, number_of_projects=None):
         start date to look for projects from
     end: str (optional)
         end date to look for projects until
-    number_of_projects : int (optional)
-        Number of projects to use. If set, takes most recent projects based
-        on the date in the project name rather than creation date.
-        Defaults to None.
 
     Returns
     -------
@@ -102,10 +98,6 @@ def find_projects(project_name, start=None, end=None, number_of_projects=None):
             describe=True
         )
     )
-
-    projects = sorted(projects, key=lambda x: x["describe"]["name"])
-    if number_of_projects is not None:
-        projects = projects[-int(number_of_projects) :]
 
     return projects
 
@@ -212,6 +204,7 @@ def get_qc_files(b38_projects, start=None, end=None):
     all_qc_files = []
     missing_projects = []
     b38_project_subset = []
+
     for b38_proj in b38_projects:
         folder_002 = (
             b38_proj["describe"]["name"]
@@ -220,11 +213,16 @@ def get_qc_files(b38_projects, start=None, end=None):
         )
         run_name = f"002_{folder_002}*"
         b37_project = find_projects(run_name, start, end)
-
-        for i, b37_proj in enumerate(b37_project):
-            if i > 0:
-                print("More than one b37 project found")
-                sys.exit()  # checks if multiple b37 projects are found.
+        if not b37_project:
+            print(
+                f"GRCh38 project {b38_proj['id']} does not have a GRCh37 "
+                f"project created between {start} and {end}"
+            )
+        elif len(b37_project) > 1:
+            print(f"More than one b37 project found for {b38_proj['id']}")
+            sys.exit()
+        else:
+            b37_proj = b37_project[0]
             qc_files = find_data("*QC*.xlsx", b37_proj["describe"]["id"])
             print(
                 f"Found {len(qc_files)} QC files in {b37_proj['id']} - "
@@ -266,8 +264,8 @@ def get_qc_files(b38_projects, start=None, end=None):
                     "b38_project_id": b38_proj["id"]
                 }
                 missing_projects.append(missing_project_info)
-                continue
             all_qc_files.append(qc_file)
+
     print(len(all_qc_files), "QC files found in total")
     print(len(b37_projects), "b37 projects found in total")
 
@@ -356,7 +354,7 @@ def get_failed_samples(qc_status_df):
     return fail_sample_names
 
 
-def find_vcf_files(projects):
+def find_medicover_vcf_files(projects):
     """
     Find VCF files in a project
 
@@ -370,17 +368,24 @@ def find_vcf_files(projects):
     vcf_files : list
         list of dicts, each representing a VCF file in DX
     """
+    sub_remove = {
+        '_Wdh': '',
+        '_Wdh2': '',
+        '_Whd3': '',
+    }
     all_sample_vcfs = []
     for project in projects:
         vcf_files = find_data(
             "*_markdup_recalibrated_Haplotyper.vcf.gz", project['id']
         )
-
         for vcf_file in vcf_files:
             file_id = vcf_file["describe"]["id"]
-            sample_name = vcf_file['describe']['name'].split(
-                "-TwistWE"
-            )[0].replace('_Wdh', '').replace('_Wdh2', '').replace('_Whd3', '')
+            file_name = vcf_file["describe"]["name"]
+            sample_name = re.sub("|".join(
+                sub_remove), lambda x: sub_remove[x.group(0)],
+                file_name.split('-TwistWE')[0]
+            )
+
             all_sample_vcfs.append(
                 {
                     "sample": sample_name,
@@ -388,6 +393,10 @@ def find_vcf_files(projects):
                     "file_id": file_id
                 }
             )
+
+    print(
+        f"\nFound {len(all_sample_vcfs)} VCF files in GRCh38 projects"
+    )
 
     return all_sample_vcfs
 
@@ -465,7 +474,9 @@ def main():
     projects_to_print = '\n\t'.join([
         f"{x['describe']['name']} - {x['id']}" for x in b38_projects
     ])
-    print(f"\n{len(b38_projects)} projects found:\n\t{projects_to_print}")
+    print(
+        f"\n{len(b38_projects)} GRCh38 projects found:\n\t{projects_to_print}"
+    )
 
     if args.run_mode == 'find_qc':
         # Get QC status files from b37 projects and read them in
@@ -549,25 +560,28 @@ def main():
             if fail_sample in list(df_non_duplicated["sample"]):
                 print(f"Failed file found: {fail_sample}")
 
+    # Otherwise just find the VCFs to merge and remove duplicates
     else:
-        all_sample_vcfs = find_vcf_files(b38_projects)
-        print(
-            f"\nFound {len(all_sample_vcfs)} VCF files in GRCh38 projects"
-        )
-
+        if (args.start) or (args.end):
+            print(
+                "Start and end dates cannot be given in no_qc run mode"
+            )
+            sys.exit(1)
+        all_sample_vcfs = find_medicover_vcf_files(b38_projects)
         samples_df = pd.DataFrame(all_sample_vcfs)
         print(
             f"These VCFs are for {len(list(samples_df['sample'].unique()))} "
             "unique samples"
         )
 
-        # Find all samples with duplicates and write to CSV
+        # Find all samples with duplicates and write dups to CSV
         all_dups = samples_df[
             samples_df.duplicated(subset=['sample'], keep=False)
         ].sort_values(by='sample')
         print(
             f"\nThere are {len(list(all_dups['sample'].unique()))} "
-            "samples which have duplicate VCFs")
+            "samples which have duplicate VCFs"
+        )
         all_dups.to_csv(
             f"{args.outfile_prefix}_all_dups.txt",
             index=False,
