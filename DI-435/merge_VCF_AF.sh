@@ -1,4 +1,5 @@
 #!/bin/bash
+set -exo pipefail
 # Script for merging VCF files and adding AF tag
 #
 # Inputs:
