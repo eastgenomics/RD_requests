@@ -8,14 +8,14 @@ This folder holds code to create an internal GRCh38 POP AF VCF [EBH-435](https:/
 ### Python script to find VCFs
 #### Usage
 Example command to find all CEN GRCh38 VCFs for all runs:
-```
+```bash
 python3 find_vcfs_to_merge.py \
     --assay "*CEN38" \
     --outfile_prefix CEN38 \
     --run_mode find_qc
 ```
 Example command to find TWE GRCh38 VCFs where the GRCh37 runs were between two dates:
-```
+```bash
 python3 find_vcfs_to_merge.py \
     --assay "*TWE38" \
     --outfile_prefix TWE38 \
@@ -25,7 +25,7 @@ python3 find_vcfs_to_merge.py \
 ```
 
 Example command to find Medicover VCFs with no QC status files:
-```
+```bash
 python3 find_vcfs_to_merge.py \
     --assay "*TWE38M" \
     --outfile_prefix TWE38M \
@@ -33,9 +33,11 @@ python3 find_vcfs_to_merge.py \
 ```
 
 #### Inputs
+
 - `-a --assay`: The GRCh38 project search term for in DNAnexus, e.g. `"*CEN38"`.
 - `-o --outfile_prefix`: Prefix to use to name the output files, e.g. `CEN38`.
 - `-r --run_mode`: A choice of whether to find and use QC status files (`find_qc`) or not (`no_qc`).
+
 In `find_qc` mode the following inputs are allowed:
   - `-s --start (optional)`: A date used to find DNAnexus (GRCh37) projects created after, see searching dates section below.
   - `-e --end (optional)`: A date used to find DNAnexus (GRCh37) projects created before, see searching dates section below.
@@ -56,7 +58,6 @@ How the script works in `find_qc` mode:
 - A CSV of all validation samples found (`{outfile_prefix}_validation_samples.csv`)
 - A CSV of all projects within search but missing QC file in DNAnexus and therefore not included (`{outfile_prefix}_projects_missing_QC.csv`).
 
-
 #### no_qc mode
 How the script works in `no_qc` mode:
 1. Finds all DNAnexus projects with suffix `--assay`
@@ -73,7 +74,7 @@ The bash script is run in a DNAnexus cloud workstation and requires positional i
 - The reference genome for GRCh38
 
 Example bash script command:
-```
+```bash
 bash merge_VCF_AF.sh \
     CEN38_files_to_merge.txt \
     GRCh38_GIABv3_no_alt_analysis_set_maskedGRC_decoys_MAP2K3_KMT2C_KCNJ18_noChr.fasta

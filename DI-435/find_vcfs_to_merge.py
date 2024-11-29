@@ -56,7 +56,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Runmode - either 'find_qc' where QC status files are "
             "searched for and used to find failed samples, or 'no_qc'"
-            "where no QC status files are searched for"
+            " where no QC status files are searched for"
         )
     )
 
@@ -354,19 +354,20 @@ def get_failed_samples(qc_status_df):
 
 def find_medicover_vcf_files(projects):
     """
-    Find VCF files in a project
+    Find VCF files in specified projects
 
     Parameters
     ----------
-    project_id : str
-        DX project ID
+    projects : list
+        list of dicts, each with info about a DX project
 
     Returns
     -------
-    vcf_files : list
+    all_sample_vcfs : list
         list of dicts, each representing a VCF file in DX
     """
-    sub_remove = {
+    # Parts of filename we don't want in the sample name
+    strings_to_remove = {
         '_Wdh': '',
         '_Wdh2': '',
         '_Whd3': '',
@@ -376,11 +377,14 @@ def find_medicover_vcf_files(projects):
         vcf_files = find_data(
             "*_markdup_recalibrated_Haplotyper.vcf.gz", project['id']
         )
+        # Loop over VCFs in project, remove unwanted strings from filename
+        # Add info to a dict and append to our list
         for vcf_file in vcf_files:
             file_id = vcf_file["describe"]["id"]
             file_name = vcf_file["describe"]["name"]
-            sample_name = re.sub("|".join(
-                sub_remove), lambda x: sub_remove[x.group(0)],
+            sample_name = re.sub(
+                "|".join(strings_to_remove),
+                lambda x: strings_to_remove[x.group(0)],
                 file_name.split('-TwistWE')[0]
             )
 

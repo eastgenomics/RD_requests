@@ -27,7 +27,7 @@ _get_peak_usage() {
     : '''
     Reports the peak memory and storage usage from dstat, to be called at end of script
     '''
-    dx watch $DX_JOB_ID --no-follow --quiet > job.log
+    dx watch "$DX_JOB_ID" --no-follow --quiet > job.log
 
     peak_mem=$(grep 'INFO CPU' job.log | cut -d':' -f5 | cut -d'/' -f1 | sort -n | tail -n1)
     total_mem="$(($(grep MemTotal /proc/meminfo | grep --only-matching '[0-9]*')/1024))"
