@@ -6,6 +6,7 @@ import argparse
 import glob
 from openpyxl import load_workbook
 
+
 def parse_args():
     """
     Parse command line arguments
@@ -24,6 +25,7 @@ def parse_args():
     )
 
     return parser.parse_args()
+
 
 def strip_pid(file):
     """
