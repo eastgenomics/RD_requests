@@ -89,6 +89,13 @@ def convert_classification_to_valid_classification_for_clinvar(df):
 
 
 def add_uuid(df):
+    """
+    Add uuids to the df, in local_id and linking_id columns
+    Args:
+        df (pd.DataFrame): variant df
+    Returns:
+        df (pd.DataFrame): variant df, with uuids.
+    """
     df['local_id'] = [f"uid_{uuid.uuid1().time}" for _ in range(len(df.index))]
     df['linking_id'] = df.loc[:, 'local_id']
     return df
@@ -96,7 +103,6 @@ def add_uuid(df):
 def main():
     args = parse_args()
     make_variants_df_from_wgs_excel(args.path)
-
 
 
 if __name__ == "__main__":
