@@ -1,4 +1,4 @@
-## Compare Somalier outputs in GRCh37 and GRCh38
+# Compare Somalier outputs in GRCh37 and GRCh38
 
 ### Description
 The `compare_b37_and_b38.py` script is used to compare Somalier Predicted_Sex values for samples in GRCh37 and GRCh38 and return any mismatches.

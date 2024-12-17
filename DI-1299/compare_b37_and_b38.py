@@ -134,7 +134,10 @@ def find_projects(search_term, number_of_projects=None):
             describe={"fields": {"name": True}},
         )
     )
-    assert projects, f"No projects found with the search term {search_term}"
+    if not projects:
+        raise ValueError(
+            f"No projects found with the search term {search_term}"
+        )
     projects = sorted(projects, key=lambda x: x["describe"]["name"])
 
     if number_of_projects is not None:
@@ -187,9 +190,10 @@ def get_run_name_from_project_name(b38_project_name):
         name of the sequencing run
     """
     match = re.search(r"\d{6}_[A-Za-z0-9]+_\d{4}_[A-Z0-9]+", b38_project_name)
-    assert (
-        match
-    ), f"Error - no sequencing run name extracted from {b38_project_name}"
+    if not match:
+        raise ValueError(
+            f"Error - no sequencing run name extracted from {b38_project_name}"
+        )
 
     return match.group(0)
 
