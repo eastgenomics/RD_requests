@@ -1,0 +1,23 @@
+{
+    "assay": "CEN",
+    "search_term": "*CEN38",
+    "number_of_projects": null,
+    "filename": "Multiqc_somalier.samples.tsv",
+    "column_to_compare": "Predicted_Sex",
+    "sample_column": "sample_id",
+    "variables_to_plot": [
+        [
+            "X_n", "X_het", "X_hom_ref", "X_hom_alt", "X_depth_mean"
+        ],
+        [
+            "Y_n", "Y_depth_mean"
+        ],
+        [
+            "n_het", "n_hom_ref", "n_unknown", "n_hom_alt"
+        ],
+        [
+            "depth_mean", "depth_sd", "gt_depth_mean", "gt_depth_sd",
+            "ab_mean", "ab_std", "p_middling_ab"
+        ]
+    ]
+}

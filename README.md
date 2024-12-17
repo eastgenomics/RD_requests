@@ -10,6 +10,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-1189] | Create new PanelApp JSON file
 | [DI-435] | Find and merge VCFs for creation of a GRCh38 POP AF VCF
 | [DI-1294] | Remove any content from the PID fields in workbooks in a given path
+| [DI-1299] | Compare values between GRCh37 and GRCh38 for Somalier
 
 
 [EBH-3050]: https://cuhbioinformatics.atlassian.net/browse/EBH-3050
@@ -19,3 +20,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-1189]: https://cuhbioinformatics.atlassian.net/browse/DI-1189
 [DI-435]: https://cuhbioinformatics.atlassian.net/browse/DI-435
 [DI-1294]: https://cuhbioinformatics.atlassian.net/issues/DI-1294
+[DI-1299]: https://cuhbioinformatics.atlassian.net/browse/DI-1299
