@@ -102,7 +102,7 @@ def main():
     outfile_without_json = "medicover_without_json_file.tsv"
     outfile_with_json = "medicover_with_json_file.tsv"
 
-    bam_df = find_dx_files(PROJECT_ID, "bam", "medicover_json_files.tsv")
+    bam_df = find_dx_files(PROJECT_ID, "bam", "medicover_bam_files.tsv")
     json_df = find_dx_files(PROJECT_ID, "json", "medicover_json_files.tsv")
 
     samples_without_json = bam_df[~bam_df.sample_name.isin(json_df.sample_name)]
