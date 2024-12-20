@@ -89,25 +89,7 @@ def get_config_info(config_dict):
         "variables_to_plot",
     ]
 
-    (
-        assay,
-        search_term,
-        number_of_projects,
-        filename,
-        column_to_compare,
-        sample_column,
-        variables_to_plot,
-    ) = list(map(config_dict.get, keys))
-
-    return (
-        assay,
-        search_term,
-        number_of_projects,
-        filename,
-        column_to_compare,
-        sample_column,
-        variables_to_plot,
-    )
+    return list(map(config_dict.get, keys))
 
 
 def find_projects(search_term, number_of_projects=None):
