@@ -8,3 +8,5 @@
 .env
 venv/
 __pycache__/
+!CEN_config.json
+!TWE_config.json
