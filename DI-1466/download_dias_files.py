@@ -90,7 +90,7 @@ def read_batch_job_metadata(batch_job_id):
         )
 
     artemis_describe = dx_describe["input"].get("artemis")
-    if artemis_describe is not True:
+    if artemis_describe is None:
         print(
             "No artemis job associated with the provided eggd_dias_batch job"
         )
