@@ -12,7 +12,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-435] | Find and merge VCFs for creation of a GRCh38 POP AF VCF |
 | [DI-1294] | Remove any content from the PID fields in workbooks in a given path |
 | [DI-1299] | Compare values between GRCh37 and GRCh38 for Somalier |
-| [DI-1466] | Create script to download dias files |
+| [DI-1466] | Script to download dias files |
 
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338

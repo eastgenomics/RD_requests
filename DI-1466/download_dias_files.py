@@ -98,7 +98,8 @@ def read_batch_job_metadata(batch_job_id):
     return dx_ids
 
 
-def call_in_parallel(func, items, ignore_missing=False, **kwargs) -> list:
+def call_in_parallel(func, items, ignore_missing=True,
+                     ignore_all_errors=True, **kwargs) -> list:
     """
     Calls the given function in parallel using concurrent.futures on
      the given set of items (i.e for calling dxpy.describe() on multiple
@@ -118,6 +119,8 @@ def call_in_parallel(func, items, ignore_missing=False, **kwargs) -> list:
          exception on a dxpy.exceptions.ResourceNotFound being raised.
          This is most likely from a file that has been deleted and we are
          just going to default to ignoring these
+    ignore_all_errors : bool
+        controls if to just print a warning instead of raising an exception.
 
     Returns
     -------
@@ -147,12 +150,13 @@ def call_in_parallel(func, items, ignore_missing=False, **kwargs) -> list:
                         'found, skipping to not raise an exception'
                     )
                     continue
-
                 # catch any other errors that might get raised during querying
                 print(
-                    f"\nError getting data for {concurrent_jobs[future]}: {exc}"
+                    f"Warning: Error getting data for {concurrent_jobs[future]}: {exc}"
                 )
-                raise exc
+
+                if ignore_all_errors is False:
+                    raise exc
 
     return results
 
@@ -184,25 +188,37 @@ def get_file_ids(launched_jobs_list):
                                                    "output": True}
     )
 
+    failed_report_jobs = []
+
     for desc in describe_dicts:
-        if desc["executableName"].startswith("dias_reports"):
-            launched_jobs_dict["snv_report_ids"].append(
-                desc["output"]["stage-rpt_generate_workbook.xlsx_report"][
-                    "$dnanexus_link"]
-            )
+        try:
+            if desc["executableName"].startswith("dias_reports"):
+                launched_jobs_dict["snv_report_ids"].append(
+                    desc["output"]["stage-rpt_generate_workbook.xlsx_report"][
+                        "$dnanexus_link"]
+                )
 
-        elif desc["executableName"].startswith("dias_cnvreports"):
-            launched_jobs_dict["cnv_report_ids"].append(
-                desc["output"]["stage-cnv_generate_workbook.xlsx_report"][
-                    "$dnanexus_link"]
-            )
+            elif desc["executableName"].startswith("dias_cnvreports"):
+                launched_jobs_dict["cnv_report_ids"].append(
+                    desc["output"]["stage-cnv_generate_workbook.xlsx_report"][
+                        "$dnanexus_link"]
+                )
 
-        elif desc["executableName"] == "eggd_artemis":
-            # Should only ever be one or zero artemis job IDs in launched jobs
-            # therefore do not need to append to list as done for reports
-            launched_jobs_dict["artemis_file_id"] = dxpy.describe(
-                desc["id"], fields={"output": True}
-            )["output"]["url_file"]
+            elif desc["executableName"] == "eggd_artemis":
+                # Should only ever be one or zero artemis job IDs in launched jobs
+                # therefore do not need to append to list as done for reports
+                launched_jobs_dict["artemis_file_id"] = dxpy.describe(
+                    desc["id"], fields={"output": True}
+                )["output"]["url_file"]
+
+        except KeyError:
+            failed_report_jobs.append(desc["id"])
+
+    if failed_report_jobs:
+        print(
+            "Warning: output files could not be gathered for the following "
+            f"jobs:\n {failed_report_jobs}"
+        )
 
     return launched_jobs_dict
 
@@ -267,7 +283,10 @@ def organise_report_files(reports_details, report_type):
         elif no_of_vars > 0:
             reports_for_download.append(report_id)
         else:
-            raise ValueError(f"{report_id} file details not intepretable")
+            print(
+                "Warning: DNAnexus 'file details' metadata "
+                f" for {report_id} are not interpretable"
+            )
 
     print(
         f'{len(reports_for_download)} {report_type} reports contain variants'
@@ -282,7 +301,7 @@ def organise_report_files(reports_details, report_type):
     if no_of_reports_without_details > 0:
         print(
             f'{no_of_reports_without_details} {report_type} reports do not '
-            'have file details'
+            'have DNAnexus metadata about number of variants in the report'
         )
 
     return reports_for_download
