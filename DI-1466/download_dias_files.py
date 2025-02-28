@@ -205,8 +205,9 @@ def get_file_ids(launched_jobs_list):
                 )
 
             elif desc["executableName"] == "eggd_artemis":
-                # Should only ever be one or zero artemis job IDs in launched jobs
-                # therefore do not need to append to list as done for reports
+                # Should only ever be one or zero artemis job IDs in launched
+                # jobs therefore do not need to append to list as done for
+                # reports
                 launched_jobs_dict["artemis_file_id"] = dxpy.describe(
                     desc["id"], fields={"output": True}
                 )["output"]["url_file"]
@@ -214,7 +215,7 @@ def get_file_ids(launched_jobs_list):
         except KeyError:
             failed_report_jobs.append(desc["id"])
 
-    if failed_report_jobs:
+    if len(failed_report_jobs) > 0:
         print(
             "Warning: output files could not be gathered for the following "
             f"jobs:\n {failed_report_jobs}"
@@ -285,14 +286,14 @@ def organise_report_files(reports_details, report_type):
         else:
             print(
                 "Warning: DNAnexus 'file details' metadata "
-                f" for {report_id} are not interpretable"
+                f"for {report_id} are not interpretable"
             )
 
     print(
-        f'{len(reports_for_download)} {report_type} reports contain variants'
+        f'{len(reports_for_download)} {report_type} report(s) with variants'
     )
     print(
-        f'{no_of_reports_without_vars} {report_type} reports do not contain'
+        f'{no_of_reports_without_vars} {report_type} report(s) without'
         ' variants'
     )
     # Unlikely to have reports without details unless using an old batch
@@ -300,7 +301,7 @@ def organise_report_files(reports_details, report_type):
     # every time
     if no_of_reports_without_details > 0:
         print(
-            f'{no_of_reports_without_details} {report_type} reports do not '
+            f'{no_of_reports_without_details} {report_type} report(s) do not '
             'have DNAnexus metadata about number of variants in the report'
         )
 
@@ -345,8 +346,8 @@ def main():
     file_ids_for_download.append(dx_ids.get("multiqc_report"))
     file_ids_for_download.append(launched_jobs_dict.get("artemis_file_id"))
 
-    # TWE will have no CNV reports workflows in launched jobs, therefore no
-    # CNV report file IDs will be retrieved
+    # TWE may have no CNV reports workflows in launched jobs, therefore no
+    # CNV report file IDs would be retrieved
     if len(launched_jobs_dict["cnv_report_ids"]) > 0:
         cnv_reports_details = call_in_parallel(
          get_details, launched_jobs_dict["cnv_report_ids"],
