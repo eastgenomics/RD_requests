@@ -212,7 +212,7 @@ def get_file_ids(launched_jobs_list):
                     desc["id"], fields={"output": True}
                 )["output"]["url_file"]
 
-        except KeyError:
+        except TypeError:
             failed_report_jobs.append(desc["id"])
 
     if len(failed_report_jobs) > 0:
