@@ -212,6 +212,11 @@ def get_file_ids(launched_jobs_list):
                     desc["id"], fields={"output": True}
                 )["output"]["url_file"]
 
+        # If the reports job has failed then desc["output"] = None, therefore
+        # calling ["stage-cnv_generate_workbook.xlsx_report"]["$dnanexus_link"]
+        # on None would raise a TypeError, we want a warning to be printed when
+        # this occurs, as opposed to raising an exeception, to allow all
+        # reports available for download to be downloaded
         except TypeError:
             failed_report_jobs.append(desc["id"])
 
