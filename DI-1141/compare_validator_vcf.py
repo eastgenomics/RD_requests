@@ -5,6 +5,21 @@ import plotly.express as px
 def read_file(mismatches_tsv, variant_validator_batch):
     '''
     Read mismatches tsv from compare_vcf_hgvs script and VariantValidator batch output.
+
+    Parameters
+    ----------
+    mismatches_tsv : str
+        File with mismatches between VEP versions to read in.
+    variant_validator_batch : str
+        Name of VariantValidator output to read in.
+
+    Returns
+    -------
+    mismatches_df : pd.DataFrame
+        Dataframe of mismatches between VEP versions.
+    vv_batch_df : pd.DataFrame
+        Dataframe of VariantValidator output.
+
     '''
     mismatches_df = pd.read_csv(
         mismatches_tsv,
@@ -26,6 +41,16 @@ def parse_validator_batch(vv_batch_df):
     '''
     Extract the relevant information from the VariantValidator batch output and reformat
     to similar format as any_mismatches.tsv
+
+    Parameters
+    ----------
+    vv_batch_df : pd.DataFrame
+        Dataframe of VariantValidator output.
+
+    Returns
+    -------
+    batch_reformatted : pd.DataFrame
+        Dataframe of parsed and reformatted VariantValidator batch output. 
     '''
     # get only Feature column
     vv_batch_df['Feature'] = vv_batch_df['HGVSc_validator'].str.split(':').str[0]
@@ -44,6 +69,18 @@ def parse_validator_batch(vv_batch_df):
 def merge_mismatches_batch(mismatches_df, vv_batch):
     '''
     Merge any_mismatches df with the parsed and reformatted VariantValidator batch df
+
+    Parameters
+    ----------
+    mismatches_df : pd.DataFrame
+        Dataframe of mismatches between VEP versions.
+    vv_batch : pd.DataFrame
+        Dataframe of parsed and reformatted VariantValidator batch output. 
+
+    Returns
+    -------
+    validator_merged : pd.DataFrame
+        Merged dataframe by inner join of mismatches between VEP versions and VariantValidator output.
     '''
     validator_merged = pd.merge(mismatches_df, vv_batch, on=["CHROM", "POS", "REF", "ALT", "Feature"], how='inner')
 
@@ -53,6 +90,16 @@ def merge_mismatches_batch(mismatches_df, vv_batch):
 def convention_changes(validator_merged):
     '''
     Changing the convention of the merged df because the output of VariantValidator differs to the output of VEP
+
+    Parameters
+    ----------
+    validator_merged : pd.DataFrame
+        Merged dataframe by inner join of mismatches between VEP versions and VariantValidator output.
+
+    Returns
+    -------
+    validator_merged : pd.DataFrame
+        Merged dataframe with convention changes to VariantValidator data to match the dataframe of mismatches between VEP versions.
     '''
     # if ends with p.? set to .
     validator_merged.loc[validator_merged["HGVSp_validator"].str.endswith("p.?"), "HGVSp_validator"] = "."
@@ -69,20 +116,34 @@ def convention_changes(validator_merged):
 def find_vep_validator_mismatches(merged_df, old_version, new_version):
     '''
     Compare HGVSc and HGVSp for each VEP version with VariantValidator batch output
+
+    Parameters
+    ----------
+    merged_df : pd.DataFrame
+        Merged dataframe of mismatches between VEP versions and VariantValidator output with convention changes.
+    old_version : str
+        Old VEP version.
+    new_version : str
+        New VEP version.
+
+    Returns
+    -------
+    mismatches_fig : PNG image file
+        Bar graph with count of HGVSc and HGVSp mismatches for the old, new, and both versions of VEP.
     '''
-    merged_df["HGVSc_" + old_version + "_mismatch"] = merged_df["HGVSc_" + old_version] != merged_df["HGVSc_validator"]
-    merged_df["HGVSc_" + new_version + "_mismatch"] = merged_df["HGVSc_" + new_version] != merged_df["HGVSc_validator"]
-    merged_df["HGVSp_" + old_version + "_mismatch"] = merged_df["HGVSp_" + old_version] != merged_df["HGVSp_validator"]
-    merged_df["HGVSp_" + new_version + "_mismatch"] = merged_df["HGVSp_" + new_version] != merged_df["HGVSp_validator"]
-    merged_df["HGVSc_both_mismatch"] = merged_df["HGVSc_" + old_version + "_mismatch"] & merged_df["HGVSc_" + new_version + "_mismatch"]
-    merged_df["HGVSp_both_mismatch"] = merged_df["HGVSp_" + old_version + "_mismatch"] & merged_df["HGVSp_" + new_version + "_mismatch"]
+    merged_df[f"HGVSc_{old_version}_mismatch"] = merged_df[f"HGVSc_{old_version}"] != merged_df["HGVSc_validator"]
+    merged_df[f"HGVSc_{new_version}_mismatch"] = merged_df[f"HGVSc_{new_version}"] != merged_df["HGVSc_validator"]
+    merged_df[f"HGVSp_{old_version}_mismatch"] = merged_df[f"HGVSp_{old_version}"] != merged_df["HGVSp_validator"]
+    merged_df[f"HGVSp_{new_version}_mismatch"] = merged_df[f"HGVSp_{new_version}"] != merged_df["HGVSp_validator"]
+    merged_df["HGVSc_both_mismatch"] = merged_df[f"HGVSc_{old_version}_mismatch"] & merged_df[f"HGVSc_{new_version}_mismatch"]
+    merged_df["HGVSp_both_mismatch"] = merged_df[f"HGVSp_{old_version}_mismatch"] & merged_df[f"HGVSp_{new_version}_mismatch"]
 
     mismatch_df = merged_df[[
-    "HGVSc_" + old_version + "_mismatch",
-    "HGVSc_" + new_version + "_mismatch",
+    f"HGVSc_{old_version}_mismatch",
+    f"HGVSc_{new_version}_mismatch",
     "HGVSc_both_mismatch",
-    "HGVSp_" + old_version + "_mismatch",
-    "HGVSp_" + new_version + "_mismatch",
+    f"HGVSp_{old_version}_mismatch",
+    f"HGVSp_{new_version}_mismatch",
     "HGVSp_both_mismatch"
     ]].sum().reset_index()
     mismatch_df.columns = ["Mismatch_Type", "Count"]
@@ -100,14 +161,36 @@ def find_vep_validator_mismatches(merged_df, old_version, new_version):
 def find_new_changes(merged_df, old_version, new_version):
     '''
     Find newly wrong and newly corrected changes
+
+    Parameters
+    ----------
+    merged_df : pd.DataFrame
+        Merged dataframe of mismatches between VEP versions and VariantValidator output with convention changes.
+    old_version : str
+        Old VEP version.
+    new_version : str
+        New VEP version.
+
+    Returns
+    -------
+    hgvsc_newly_wrong : tsv file
+        TSV file of the newly wrong HGVSc changes.
+    hgvsp_newly_wrong : tsv file
+        TSV file of the newly wrong HGVSp changes.
+    hgvsc_newly_corrected : tsv file
+        TSV file of the newly corrected HGVSc changes.
+    hgvsp_newly_corrected : tsv file
+        TSV file of the newly corrected HGVSp changes.
+    changes_fig : PNG image file
+        Bar graph with count of HGVSc and HGVSp newly wrong and newly corrected changes between VEP versions.
     '''
     # Newly corrected in v113
-    merged_df["HGVSc_newly_corrected"] = (merged_df["HGVSc_" + old_version + "_mismatch"] == True) & (merged_df["HGVSc_" + new_version + "_mismatch"] == False)
-    merged_df["HGVSp_newly_corrected"] = (merged_df["HGVSp_" + old_version + "_mismatch"] == True) & (merged_df["HGVSp_" + new_version + "_mismatch"] == False)
+    merged_df["HGVSc_newly_corrected"] = (merged_df[f"HGVSc_{old_version}_mismatch"] == True) & (merged_df[f"HGVSc_{new_version}_mismatch"] == False)
+    merged_df["HGVSp_newly_corrected"] = (merged_df[f"HGVSp_{old_version}_mismatch"] == True) & (merged_df[f"HGVSp_{new_version}_mismatch"] == False)
 
     # Newly wrong in v113
-    merged_df["HGVSc_newly_wrong"] = (merged_df["HGVSc_" + old_version + "_mismatch"] == False) & (merged_df["HGVSc_" + new_version + "_mismatch"] == True)
-    merged_df['HGVSp_newly_wrong'] = (merged_df["HGVSp_" + old_version + "_mismatch"] == False) & (merged_df["HGVSp_" + new_version + "_mismatch"] == True)
+    merged_df["HGVSc_newly_wrong"] = (merged_df[f"HGVSc_{old_version}_mismatch"] == False) & (merged_df[f"HGVSc_{new_version}_mismatch"] == True)
+    merged_df['HGVSp_newly_wrong'] = (merged_df[f"HGVSp_{old_version}_mismatch"] == False) & (merged_df[f"HGVSp_{new_version}_mismatch"] == True)
 
     # Get counts
     between_version_counts = merged_df[[
@@ -170,7 +253,7 @@ def main():
 
     mismatches_df, vv_batch_df = read_file(args.mismatches_tsv, args.variant_validator)
     parsed_vv_batch = parse_validator_batch(vv_batch_df)
-    validator_merged = merge_mismatches_batch(parsed_vv_batch, mismatches_df)
+    validator_merged = merge_mismatches_batch(mismatches_df, parsed_vv_batch)
     merged_df = convention_changes(validator_merged)
 
     merged_df.to_csv('merged_validator_mismatches.tsv', sep='\t', header=True, index=False)

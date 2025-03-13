@@ -8,6 +8,16 @@ import numpy as np
 def get_sample_pairs(directory):
     '''
     Read sample pairs in directory.
+
+    Parameters
+    ----------
+    directory : str
+        Path to directory with VCFs of both VEP versions
+
+    Returns
+    -------
+    sample_pairs : list
+        List of filenames of sample pairs (new and old VEP)
     '''
     files = sorted(f for f in os.listdir(directory) if f.endswith("_filtered.vcf"))
     sample_ids = {}
@@ -28,6 +38,26 @@ def get_sample_pairs(directory):
 def read_file(old_vcf, new_vcf, old_version, new_version, directory):
     '''
     Read old and new VEP version VCFs into pandas dataframes.
+
+    Parameters
+    ----------
+    old_vcf : str
+        Filename of the sample annotated with old VEP.
+    new_vcf : str
+        Filename of the sample annotated with new VEP.
+    old_version : str
+        Old VEP version.
+    new_version : str
+        New VEP version.
+    directory : str
+        Path to directory with VCFs of both VEP versions
+
+    Returns
+    -------
+    annotations_old : pd.DataFrame
+        Dataframe of the sample annotated with old VEP.
+    annotations_new : pd.DataFrame
+        Dataframe of the sample annotated with new VEP.
     '''
     old_vep_file = os.path.join(directory, old_vcf)
     new_vep_file = os.path.join(directory, new_vcf)
@@ -35,14 +65,14 @@ def read_file(old_vcf, new_vcf, old_version, new_version, directory):
     annotations_old = pd.read_csv(
         old_vep_file,
         sep='\t',
-        names=["CHROM", "POS", "REF", "ALT", "Consequence_" + old_version, "Feature", "HGVSc_" + old_version, "HGVSp_" + old_version],
+        names=["CHROM", "POS", "REF", "ALT", f"Consequence_{old_version}", "Feature", f"HGVSc_{old_version}", f"HGVSp_{old_version}"],
         dtype={'CHROM': 'str'}
     )
     
     annotations_new = pd.read_csv(
         new_vep_file,
         sep='\t',
-        names=["CHROM", "POS", "REF", "ALT", "Consequence_" + new_version, "Feature", "HGVSc_" + new_version, "HGVSp_" + new_version],
+        names=["CHROM", "POS", "REF", "ALT", f"Consequence_{new_version}", "Feature", f"HGVSc_{new_version}", f"HGVSp_{new_version}"],
         dtype={'CHROM': 'str'}
     )
 
@@ -54,14 +84,31 @@ def find_mismatches(annotations_old, annotations_new, old_version, new_version):
     Merge old and new variant lines on variant and feature.
     Find lines where Consequence, HGVSc, or HGVSp don't match between old and new.
     Remove NR transcripts.
+
+    Parameters
+    ----------
+    annotations_old : pd.DataFrame
+        Dataframe of the sample annotated with old VEP.
+    annotations_new : pd.DataFrame
+        Dataframe of the sample annotated with new VEP.
+    old_version : str
+        Old VEP version.
+    new_version : str
+        New VEP version.
+
+
+    Returns
+    -------
+    mismatches_not_nr : pd.DataFrame
+        Dataframe of mismatches between old and new VEP annotations. 
     '''
     # merge based on certain headers
     merged = pd.merge(annotations_old, annotations_new, on=["CHROM", "POS", "REF", "ALT", "Feature"], how='inner')
     
     # get any mismatches between old and new Consequence, HGVSc, and HGVSp
-    any_mismatches = merged[(merged['Consequence_' + old_version] != merged['Consequence_' + new_version]) 
-                            | (merged['HGVSc_' + old_version] != merged['HGVSc_' + new_version]) 
-                            | (merged['HGVSp_' + old_version] != merged['HGVSp_' + new_version])]
+    any_mismatches = merged[(merged[f"Consequence_{old_version}"] != merged[f"Consequence_{new_version}"]) 
+                            | (merged[f"HGVSc_{old_version}"] != merged[f"HGVSc_{new_version}"]) 
+                            | (merged[f"HGVSp_{old_version}"] != merged[f"HGVSp_{new_version}"])]
     
     # drop any NR transcripts
     mismatches_not_nr = any_mismatches[~any_mismatches['Feature'].str.startswith('NR_')]
@@ -73,6 +120,22 @@ def to_csv_chunks(df, output_file, sep=",", chunksize=25000):
     '''
     Save pandas dataframe to csv with max 25000 rows. If there are more than 25000 rows,
     create files with similar number of rows.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe to write out.
+    output_file : str
+        Filename to output.
+    sep : str
+        Separator between each column per row in the dataframe. 
+
+    Returns
+    -------
+    uniq_vars : CSV file
+        CSV file with the unique variants from the mismatches for all samples. 
+    uniq_transcripts : CSV file
+        CSV file with the unique transcripts from the mismatches for all samples. 
     '''
     total_rows = len(df)
     num_csv = (total_rows // chunksize) + (1 if total_rows % chunksize else 0)
@@ -84,6 +147,18 @@ def to_csv_chunks(df, output_file, sep=",", chunksize=25000):
 def create_variantvalidator_inputs(all_dfs):
     '''
     Get unique variants and transcripts for VariantValidator input. Split to 25000 variant per file.
+
+    Parameters
+    ----------
+    all_dfs : pd.DataFrame
+        Concatenated dataframe of mismatches between new and old VEP for all samples.
+
+    Returns
+    -------
+    uniq_vars : CSV file
+        CSV file with the unique variants from the mismatches for all samples. 
+    uniq_transcripts : CSV file
+        CSV file with the unique transcripts from the mismatches for all samples. 
     '''
     # get unique variants
     chr_pos_ref_alt = all_dfs[['CHROM','POS', 'REF', 'ALT']]
@@ -126,10 +201,10 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
 
-    vcf_pairs = get_sample_pairs(args.directory)
+    sample_pairs = get_sample_pairs(args.directory)
     all_dfs=[]
 
-    for old_vcf,new_vcf in vcf_pairs:
+    for old_vcf,new_vcf in sample_pairs:
         annotations_old, annotations_new = read_file(old_vcf, new_vcf, args.old_version, args.new_version, args.directory)
         all_dfs.append(find_mismatches(annotations_old, annotations_new, args.old_version, args.new_version))
     
