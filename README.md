@@ -12,6 +12,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-435] | Find and merge VCFs for creation of a GRCh38 POP AF VCF |
 | [DI-1294] | Remove any content from the PID fields in workbooks in a given path |
 | [DI-1299] | Compare values between GRCh37 and GRCh38 for Somalier |
+| [DI-1141] | Compare Consequence, HGVSc, and HGVSp values between VEP versions and compare with output batch of VariantValidator |
 | [DI-1466] | Script to download dias files |
 
 
@@ -24,4 +25,5 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-435]: https://cuhbioinformatics.atlassian.net/browse/DI-435
 [DI-1294]: https://cuhbioinformatics.atlassian.net/browse/DI-1294
 [DI-1299]: https://cuhbioinformatics.atlassian.net/browse/DI-1299
+[DI-1141]: https://cuhbioinformatics.atlassian.net/browse/DI-1141
 [DI-1466]: https://cuhbioinformatics.atlassian.net/browse/DI-1466
