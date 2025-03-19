@@ -320,7 +320,7 @@ def gather_vv_files_and_merge_with_vep_mismatches(
     validator_files = [
         f
         for f in os.listdir(output_dir)
-        if f.startswith("validator") and f.endswith(".csv")
+        if f.startswith("validator") and f.endswith(".tsv")
     ]
     all_validator_dfs = []
     for vv_file in validator_files:
