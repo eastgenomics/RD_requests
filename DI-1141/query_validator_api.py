@@ -306,7 +306,8 @@ def gather_vv_files_and_merge_with_vep_mismatches(
     output_dir, mismatches_df, assay
 ):
     """
-    _summary_
+    Gather up the VariantValidator result files, concatenate and merge with
+    our mismatches file
 
     Parameters
     ----------
