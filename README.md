@@ -14,6 +14,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-1299] | Compare values between GRCh37 and GRCh38 for Somalier |
 | [DI-1141] | Compare Consequence, HGVSc, and HGVSp values between VEP versions and compare with output batch of VariantValidator |
 | [DI-1466] | Script to download dias files |
+| [DI-1480] | Script to compare filtered variants for the same samples |
 
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338
@@ -27,3 +28,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-1299]: https://cuhbioinformatics.atlassian.net/browse/DI-1299
 [DI-1141]: https://cuhbioinformatics.atlassian.net/browse/DI-1141
 [DI-1466]: https://cuhbioinformatics.atlassian.net/browse/DI-1466
+[DI-1480]: https://cuhbioinformatics.atlassian.net/browse/DI-1480
