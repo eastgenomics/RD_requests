@@ -4,6 +4,20 @@ import dxpy
 
 
 def parse_file_ids(fastqs):
+    """Parse the fastq file ids into a dict with the appropriate input name as
+    key
+
+    Parameters
+    ----------
+    fastqs : list
+        List of file ids for the fastqs
+
+    Returns
+    -------
+    dict
+        Dict of dxlink arranged according to the appropriate input name
+    """
+
     data = {}
     data.setdefault("reads_fastqgzs", [])
     data.setdefault("reads2_fastqgzs", [])
@@ -32,12 +46,13 @@ def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
         DNAnexus folder path where you want to store job output, start with /
     alias : str
         version number of the sentieon_bwa app
+    job_number: int
+        Integer to annotate the job name with
 
     Returns
     -------
     str
         App will run and the function will return the associated job_id
-
     """
 
     # Set the job input
