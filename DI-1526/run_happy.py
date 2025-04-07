@@ -4,6 +4,19 @@ import dxpy
 
 
 def get_vcfs(vcf_folder):
+    """Find the vcfs for the given DNAnexus folder path
+
+    Parameters
+    ----------
+    vcf_folder : str
+        String of the DNAnexus path to find the vcfs in
+
+    Returns
+    -------
+    list
+        List of the file ids for the found vcfs
+    """
+
     vcfs = []
 
     for vcf in dxpy.find_data_objects(
@@ -18,6 +31,23 @@ def get_vcfs(vcf_folder):
 
 
 def match_vcfs(truth_vcfs, query_vcfs):
+    """Get the sample name from the truth vcf and create a dict containing the
+    input names for the happy app and the file ids for the vcfs
+
+    Parameters
+    ----------
+    truth_vcfs : list
+        List of file ids for the truth vcfs
+    query_vcfs : list
+        List of file ids for the query vcfs
+
+    Returns
+    -------
+    dict
+        Dict containing the sample name, the input names for the happy app and
+        the appropriate file ids
+    """
+
     matched_vcfs = {}
 
     for truth_vcf in truth_vcfs:
@@ -36,22 +66,24 @@ def match_vcfs(truth_vcfs, query_vcfs):
 
 
 def run_happy(vcfs, folder_path, alias, type_assay):
-    """
-    Run the sentieon_bwa command for me
+    """Run the happy app
 
     Parameters
     ----------
     vcfs : list
-        List containing fastq reads file ids
+        List containing vcf file ids
     folder_path : str
         DNAnexus folder path where you want to store job output, start with /
     alias : str
-        version number of the sentieon_bwa app
+        Sample name to annotate the job name with
+    type_assay: str
+        String representing the type of assay which will decide some of the
+        inputs used
 
     Returns
     -------
     str
-        App will run and the function will return the associated job_id
+        String representing the job id
     """
 
     # Set the job input
