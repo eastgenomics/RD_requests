@@ -52,7 +52,7 @@ def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
     Returns
     -------
     str
-        App will run and the function will return the associated job_id
+        String representing the job id for the started job
     """
 
     # Set the job input
