@@ -34,9 +34,9 @@ def parse_file_ids(fastqs):
     return data
 
 
-def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
+def run_sentieon_fastq_to_vcf(fastqs, folder_path, version, job_number):
     """
-    Run the sentieon_bwa command for me
+    Run the sentieon_fastq_to_vcf
 
     Parameters
     ----------
@@ -44,8 +44,8 @@ def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
         List containing fastq reads file ids
     folder_path : str
         DNAnexus folder path where you want to store job output, start with /
-    alias : str
-        version number of the sentieon_bwa app
+    version : str
+        Version number of the sentieon_fastq_to_vcf app
     job_number: int
         Integer to annotate the job name with
 
@@ -64,8 +64,8 @@ def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
     # Run the job
     job_run = dxpy.DXApp(dxid="app-Gy4j5z00PPyQ5qv5FBXy0ZZp").run(
         job_input,
-        folder=f"{folder_path}/{folder_path}_{job_number}",
-        name=f"sentieon-germline-fastq2vcf_v{alias}_{job_number}",
+        folder=f"{folder_path}/{job_number}",
+        name=f"sentieon-germline-fastq2vcf_v{version}_{job_number}",
     )
 
     # Return the job_id

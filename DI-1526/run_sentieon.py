@@ -4,6 +4,20 @@ import dxpy
 
 
 def parse_file_ids(fastqs):
+    """Parse the fastq file ids into a dict with the sample id as key
+
+    Parameters
+    ----------
+    fastqs : list
+        List of file ids for the fastqs
+
+    Returns
+    -------
+    dict
+        Dict of dxlink arranged according to the appropriate sample id and
+        input name
+    """
+
     data = {}
 
     for file_id in fastqs:
@@ -19,6 +33,8 @@ def parse_file_ids(fastqs):
         data[sample_name].setdefault("reads2_fastqgzs", [])
 
         if "_R1_" in file_data["name"]:
+            # have to do this to order the file ids otherwise the sentieon job
+            # fails
             if (
                 "_L001_" in sample_name
                 and data[sample_name]["reads_fastqgzs"] != {}
@@ -48,12 +64,24 @@ def parse_file_ids(fastqs):
 
 
 def get_sample_name(file_name):
+    """Get the sample id from the given file name
+
+    Parameters
+    ----------
+    file_name : str
+        File name
+
+    Returns
+    -------
+    str
+        Sample id extracted from the file name
+    """
+
     return file_name.split("_")[0]
 
 
-def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
-    """
-    Run the sentieon_bwa command for me
+def run_sentieon_fastq_to_vcf(fastqs, folder_path, version, sample_id):
+    """Run the sentieon fastq2vcf
 
     Parameters
     ----------
@@ -61,14 +89,15 @@ def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
         List containing fastq reads file ids
     folder_path : str
         DNAnexus folder path where you want to store job output, start with /
-    alias : str
-        version number of the sentieon_bwa app
+    version : str
+        Version of the sentieon app used
+    sample_id: str
+        Sample id
 
     Returns
     -------
     str
-        App will run and the function will return the associated job_id
-
+        Job id for the sentieon job
     """
 
     # Set the job input
@@ -83,8 +112,8 @@ def run_sentieon_fastq_to_vcf(fastqs, folder_path, alias, job_number):
     # Run the job
     job_run = dxpy.DXApp(dxid="app-Gy4j5z00PPyQ5qv5FBXy0ZZp").run(
         job_input,
-        folder=f"{folder_path}/{job_number}",
-        name=f"sentieon-germline-fastq2vcf_v{alias}_{job_number}",
+        folder=f"{folder_path}/{sample_id}",
+        name=f"sentieon-germline-fastq2vcf_v{version}_{sample_id}",
     )
 
     # Return the job_id
@@ -104,8 +133,8 @@ def main(fastqs, destination):
         job_id = run_sentieon_fastq_to_vcf(
             job_input,
             folder_path=standard_path,
-            alias="5.1.0",
-            job_number=sample,
+            version="5.1.0",
+            sample_id=sample,
         )
         sentieon_jobs.append(job_id)
 
@@ -124,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-d",
         "--destination",
-        help="Destination of the reproducibility jobs",
+        help="Destination of the job outputs",
     )
 
     args = parser.parse_args()
