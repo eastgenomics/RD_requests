@@ -9,7 +9,11 @@ def main(samples, path):
             name=f"{sample}*", name_mode="glob", folder=path
         )
 
-        file1_data, file2_data = [file for file in found_files]
+        files = [file for file in found_files]
+
+        assert len(files) == 2, "Expected 2 flagstat files to be found"
+
+        file1_data, file2_data = files
 
         file1_content = dxpy.open_dxfile(file1_data["id"]).read()
         file2_content = dxpy.open_dxfile(file2_data["id"]).read()
