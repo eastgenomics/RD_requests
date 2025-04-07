@@ -21,10 +21,10 @@ def parse_file_ids(fastqs):
         if "_R1_" in file_data["name"]:
             if (
                 "_L001_" in sample_name
-                and data[sample_name]["reads_fastqgzs"] is not {}
+                and data[sample_name]["reads_fastqgzs"] != {}
             ):
                 data[sample_name]["reads_fastqgzs"].insert(
-                    dxpy.dxlink(file_id), 0
+                    0, dxpy.dxlink(file_id)
                 )
             else:
                 data[sample_name]["reads_fastqgzs"].append(
@@ -34,10 +34,10 @@ def parse_file_ids(fastqs):
         if "_R2_" in file_data["name"]:
             if (
                 "_L001_" in sample_name
-                and data[sample_name]["reads2_fastqgzs"] is not {}
+                and data[sample_name]["reads2_fastqgzs"] != {}
             ):
                 data[sample_name]["reads2_fastqgzs"].insert(
-                    dxpy.dxlink(file_id), 0
+                    0, dxpy.dxlink(file_id)
                 )
             else:
                 data[sample_name]["reads2_fastqgzs"].append(
