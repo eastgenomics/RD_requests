@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--path",
-        help="Path in which to find data",
+        help="Path in which to find data. There should be 2 flagstat files in this folder or the subfolders",
     )
 
     args = parser.parse_args()
