@@ -113,7 +113,10 @@ def main():
     samples_with_json.to_csv(outfile_with_json, sep="\t", index=False)
 
     samples_with_json_in_json_missing = samples_with_json[
-        samples_with_json.json_folder_path.str.contains("JSON_MISSING")]
+        samples_with_json.json_folder_path.str.contains(
+            "JSON_MISSING|json_missing", regex=True
+        )
+    ]
 
     print(
         f"Found {len(samples_with_json_in_json_missing)} Medicover samples "
