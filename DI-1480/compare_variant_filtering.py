@@ -380,6 +380,8 @@ def get_PASS_variants(folder, name, fields):
         name of the folder the file is in
     name : str
         name of the file
+    fields: str
+        comma-separated string of fields to get from the PASS variants
 
     Returns
     -------
@@ -466,6 +468,8 @@ def get_variant_info(vcf_dict, old_path, new_path, fields):
         path to folder holding all the VCFs with old filtering
     new_path : str
         path to folder holding all the VCFs with new filtering
+    fields: str
+        comma-separated string of fields to get from the PASS variants
 
     Returns
     -------
@@ -506,7 +510,7 @@ def get_variant_info(vcf_dict, old_path, new_path, fields):
     return vcf_dict
 
 
-def create_df(vcf_dict, old_name, new_name):
+def create_df_one_row_per_sample(vcf_dict, old_name, new_name):
     """
     Create a df of each sample, panel and variants
 
@@ -579,7 +583,7 @@ def create_tuple_for_multiindex(col_name, old_name, new_name):
         return (new_name, col_name.removeprefix(f"{new_name}_"))
 
 
-def create_df_by_sample(variant_df, old_name, new_name, fields):
+def create_df_multiple_rows_per_sample(variant_df, old_name, new_name, fields):
     """
     Create a dataframe with one row per sample, with counts and all
     variants filtered in
@@ -592,6 +596,8 @@ def create_df_by_sample(variant_df, old_name, new_name, fields):
         name for old filtering, e.g. 'GRCh37'
     new_name : str
         name for new filtering, e.g. 'GRCh38'
+    fields: str
+        comma-separated string of fields to get from the PASS variants
 
     Returns
     -------
@@ -679,6 +685,9 @@ def create_df_by_sample(variant_df, old_name, new_name, fields):
     df_merged.set_index(["Sample", "idx"], inplace=True)
 
     # Create multiindex using tuples and set that as the columns
+    # this means we end up with a top level index of genome build and
+    # the second level is the field name (e.g. GRCh37 top level and HGVSc
+    # as lower level)
     new_columns = pd.MultiIndex.from_tuples(
         [
             create_tuple_for_multiindex(col, old_name, new_name)
@@ -687,7 +696,7 @@ def create_df_by_sample(variant_df, old_name, new_name, fields):
     )
     df_merged.columns = new_columns
     # Create new empty Comment column to fill in manually
-    df_merged["Comment"] = np.nan
+    df_merged["Comment"] = ""
 
     return df_merged
 
@@ -722,14 +731,18 @@ def main():
     vcf_dict_with_variants = get_variant_info(
         vcf_dict_no_dups, args.old_path, args.new_path, args.fields
     )
-    by_sample_df = create_df(
+    one_row_per_sample_df = create_df_one_row_per_sample(
         vcf_dict_with_variants, args.old_name, args.new_name
     )
-    by_variant_df = create_df_by_sample(
-        by_sample_df, args.old_name, args.new_name, args.fields
+    multiple_rows_per_sample_df = create_df_multiple_rows_per_sample(
+        one_row_per_sample_df, args.old_name, args.new_name, args.fields
     )
     write_to_excel_workbook(
-        by_sample_df, by_variant_df, "by_sample", "by_variants", args.outfile
+        one_row_per_sample_df,
+        multiple_rows_per_sample_df,
+        "one_row_per_sample",
+        "per_sample_variants_grouped",
+        args.outfile,
     )
 
 
