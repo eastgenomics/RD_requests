@@ -10,7 +10,7 @@ The script `get_xlsx_pathjs.py` takes inputs:
 
 ### Running
 Example command:
-`python3 RD_requests/DI-1744/get_xlsx_paths.py --test_code_mapping /Downloads/mapping.csv --clarity_extract /Downloads/mock_clarity.csv `
+`python3 RD_requests/DI-1744/get_xlsx_paths.py --test_code_mapping /Downloads/mapping.csv --clarity_extract /Downloads/mock_clarity.csv`
 
 ### Output
 The output of the script is two files:
