@@ -21,8 +21,18 @@ def parse_args():
         type=str,
         help=("Path to Clarity extract file"),
     )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="all_data.csv",
+        help=("Output file name for the processed data"),
+    )
+    args = parser.parse_args()
 
-    return parser.parse_args()
+    if not args.clarity_extract:
+        parser.error("The --clarity_extract argument is required.")
+
+    return args
 
 
 def open_files(clarity):
@@ -35,7 +45,7 @@ def open_files(clarity):
     return clarity_df
 
 
-def get_matching_projects():
+def get_matching_projects(assay):
     """
     Retrieve project IDs matching specific name patterns.
     This function searches for projects with names starting with '002' and ending with either 'CEN' or 'TWE'.
@@ -46,11 +56,12 @@ def get_matching_projects():
         A list of tuples containing project IDs and their names.
         Each tuple is in the format (project_id, project_name).
     """
-    pattern = '^002.*_(CEN|TWE)$'
+    pattern = rf'^002.*_{assay}$'
     matching_projects = list(dxpy.find_projects(
         name={'regexp': pattern}, describe=True))
     matching_projects_tuple_list = [(proj['id'], proj['describe']['name']) for proj in matching_projects]
-
+    print(f"Found {len(matching_projects_tuple_list)} matching projects.")
+    print("Matching projects:", matching_projects_tuple_list)
     return matching_projects_tuple_list
 
 
@@ -96,7 +107,7 @@ def query_reports_for_project(project_id, sample_ids):
             f"Error fetching files for sample in project {project_id}: {e}")
     return records
 
-def fetch_all_reports(df, chunk_size=100, max_workers=64):
+def fetch_all_reports_for_assay(df, assay, chunk_size=100, max_workers=64):
     """
     Fetch all reports for the given DataFrame of sample IDs.
     This function retrieves project IDs matching specific name patterns,
@@ -107,6 +118,8 @@ def fetch_all_reports(df, chunk_size=100, max_workers=64):
     ----------
     df : pd.DataFrame
         DataFrame containing sample IDs to search for.
+    assay : str
+        The assay type to filter projects (e.g., 'CEN' or 'TWE').
     chunk_size : int, optional
         set number of ids to process at a time, by default 100
     max_workers : int, optional
@@ -118,7 +131,7 @@ def fetch_all_reports(df, chunk_size=100, max_workers=64):
         DataFrame containing the merged results with additional columns.
     """
     sample_ids = df['sample_id'].tolist()
-    project_info = get_matching_projects()
+    project_info = get_matching_projects(assay)
     project_dict = dict(project_info)
 
     # Chunk sample IDs to manage search load
@@ -154,7 +167,7 @@ def fetch_all_reports(df, chunk_size=100, max_workers=64):
     # Identify samples with multiple projects
     project_counts = merged_df.groupby('sample_id')['project_id'].nunique()
     multiple_projects = project_counts[project_counts > 1].index.tolist()
-
+    print(f"Samples with multiple projects: {multiple_projects}")
     # Log errors for samples with multiple projects
     for sample in multiple_projects:
         print(f"Error: Sample {sample} found in multiple projects.")
@@ -225,8 +238,11 @@ def main():
     # create df with column by splitting the Beaker Procedure Name to create a new column for assay
     clarity_df['Assay'] = clarity_df['Beaker Procedure Name'].str.split(' ').str[0]
     clarity_df['sample_id'] = clarity_df['Specimen Identifier'].str.split('-').str[1]
-
-    report_df = fetch_all_reports(clarity_df)
+    assays = ['TWE', 'CEN']
+    report_df = pd.DataFrame()
+    for assay in assays:
+        assay_df = fetch_all_reports_for_assay(clarity_df, assay)
+        report_df = pd.concat([report_df, assay_df], ignore_index=True)
     # Add the path to the report
     report_df['path'] = report_df.apply(
         lambda x: create_path(x['file_name'], x['Assay'], x['project_name']),
@@ -235,9 +251,11 @@ def main():
     # Add specimen ID to the report_df
     report_df['specimen_id'] = report_df['file_name'].str.split('-').str[0]
     # Full sample ID
-    report_df['full_sample_id'] = report_df['sample_id'].str.split('-').str[0] + "-" + report_df['sample_id'].str.split('-').str[1]
-    # Create output files
-    report_df.to_csv("all_data.csv")
+    specimen_identifier_split = report_df['specimen_id'].str.split('-')
+    report_df['full_sample_id'] = str(specimen_identifier_split[0]) + "-" + str(specimen_identifier_split[1])
+
+    # Create output files with no index
+    report_df.to_csv(f"{args.output}", index=False)
 
 if __name__ == "__main__":
     main()
