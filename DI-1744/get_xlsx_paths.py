@@ -23,6 +23,7 @@ def parse_args():
     )
     parser.add_argument(
         "--output",
+        "-o",
         type=str,
         default="all_data.csv",
         help=("Output file name for the processed data"),
@@ -61,7 +62,6 @@ def get_matching_projects(assay):
         name={'regexp': pattern}, describe=True))
     matching_projects_tuple_list = [(proj['id'], proj['describe']['name']) for proj in matching_projects]
     print(f"Found {len(matching_projects_tuple_list)} matching projects.")
-    print("Matching projects:", matching_projects_tuple_list)
     return matching_projects_tuple_list
 
 
@@ -94,6 +94,10 @@ def query_reports_for_project(project_id, sample_ids):
                 name_mode='regexp',
                 describe={'fields': {'name': True}}
             )
+            # If no files found, return empty records
+            if not matching_files:
+                print(f"No files found for project {project_id} with pattern {pattern}")
+                return records
             for file in matching_files:
                 file_name = file['describe']['name']
                 sample_id = file_name.split('-')[1]
@@ -161,6 +165,9 @@ def fetch_all_reports_for_assay(df, assay, chunk_size=100, max_workers=64):
     # Create a DataFrame from the records
     records_df = pd.DataFrame(all_records)
     print(records_df.columns)
+    if records_df.empty:
+        print("No records found for the given sample IDs.")
+        return df
     # Merge with the original df to retain additional columns
     merged_df = pd.merge(df, records_df, on='sample_id', how='left')
 
@@ -190,11 +197,22 @@ def create_path(filename, assay, run):
     -------
         path (str): path to the given filename on clingen
     """
-    base_path = "/appdata/clingen/cg/Regional Genetics Laboratories/Molecular Genetics/Data archive/Sequencing HT/"
+    # Handle NaN values
+    if pd.isna(run) or run == 'nan':
+        # print(f"Warning: run is NaN or 'nan' for filename {filename}. Returning None.")
+        # print(assay)
+        return None
+
+    # Convert to string if it's not already
+    run = str(run)
+
+    base_path= r"/appdata/clingen/cg/Regional\ Genetics\ Laboratories/Molecular\ Genetics/Data\ archive/Sequencing\ HT/"
+
+    run_without_prefix = re.sub(r'^002_', '', run)
     if assay == "CEN":
-        path = base_path + f"{assay}/Run folders/{run}_{assay}/{filename}"
+        path = base_path + rf"{assay}/Run\ folders/{run_without_prefix}/{filename}"
     elif assay == "WES":
-        path = base_path + f"{assay}/{run}_TWE/{filename}"
+        path = base_path + rf"{assay}/{run_without_prefix}/{filename}"
     return path
 
 
@@ -223,6 +241,38 @@ def find_file_name(search_query):
             return filenames[0]
 
 
+def filter_duplicate_files(df):
+    """
+    Filter duplicate files based on specific rules:
+    - For samples with exactly 2 reports: keep files with _CNV_ or _SNV_,
+      but filter out files that don't contain _CNV_ or _SNV_ and end in _2
+    """
+    # Group by sample_id
+    grouped = df.groupby('sample_id')
+    filtered_rows = []
+
+    for sample_id, group in grouped:
+        if len(group) == 2:  # Exactly 2 reports
+            # Check each file in the group
+            files_to_keep = []
+            for _, row in group.iterrows():
+                filename = row['file_name']
+                # Keep files that contain _CNV_ or _SNV_
+                if '_CNV_' in filename or '_SNV_' in filename:
+                    files_to_keep.append(row)
+                # Filter out files that don't contain _CNV_ or _SNV_ and end in _2
+                elif not ('_CNV_' in filename or '_SNV_' in filename) and filename.endswith('_2.xlsx'):
+                    continue  # Skip this file
+                else:
+                    files_to_keep.append(row)  # Keep other files
+
+            filtered_rows.extend(files_to_keep)
+        else:
+            # Keep all rows for samples with != 2 reports (will be handled separately)
+            filtered_rows.extend([row for _, row in group.iterrows()])
+
+    return pd.DataFrame(filtered_rows).reset_index(drop=True)
+
 def main():
     """
     Script entry point
@@ -241,21 +291,79 @@ def main():
     assays = ['TWE', 'CEN']
     report_df = pd.DataFrame()
     for assay in assays:
-        assay_df = fetch_all_reports_for_assay(clarity_df, assay)
+        assay_samples = clarity_df[clarity_df['Assay'] == assay]
+        assay_df = fetch_all_reports_for_assay(assay_samples, assay)
         report_df = pd.concat([report_df, assay_df], ignore_index=True)
-    # Add the path to the report
+
+    print(report_df.head())
+    print(f"Total reports fetched: {report_df.shape[0]}")
+    print(report_df.iloc[0:2, :])
+
+    # Split R codes into a list
+    report_df['R_codes'] = report_df['Test Directory Test Code'].str.split('|')
+    # remove decimal points from R codes
+    report_df['R_codes'] = report_df['R_codes'].apply(
+        lambda x: [re.sub(r'\.\d+', '', code) for code in x if code.startswith('R')]
+    )
+
+    # Add the path to the processed reports
     report_df['path'] = report_df.apply(
         lambda x: create_path(x['file_name'], x['Assay'], x['project_name']),
         axis=1
     )
-    # Add specimen ID to the report_df
+
+    # Add specimen ID to the processed report_df
     report_df['specimen_id'] = report_df['file_name'].str.split('-').str[0]
-    # Full sample ID
-    specimen_identifier_split = report_df['specimen_id'].str.split('-')
-    report_df['full_sample_id'] = str(specimen_identifier_split[0]) + "-" + str(specimen_identifier_split[1])
+    report_df['full_sample_id'] = report_df['specimen_id'] + "-" + report_df['sample_id']
+    # create report_r_code column from file_name
+    report_df['report_r_code'] = report_df['file_name'].str.extract(r'_(R\d+\.\d+)_')[0]
+
+    # Stratify into multiple files for different outcomes
+    # Filter out all rows where filename contains _CNV_ or _mosaic_
+    report_df = report_df[~report_df['file_name'].str.contains('_CNV_', na=False)]
+    report_df = report_df[~report_df['file_name'].str.contains('_mosaic_', na=False)]
+    print(f"After filtering out CNV and mosaic files: {report_df.shape[0]} rows remaining")
+
+    missing_data = report_df['file_name'].isna() | report_df['R_codes'].isna()
+    mising_data_df = report_df[missing_data]
+    if missing_data.any():
+        print(f"Warning: {missing_data.sum()} rows have missing data in 'file_name' or 'R_codes'.")
+    mising_data_df.to_csv(f'{args.output}_missing_data.csv', index=False)
+
+    # Remove rows with NaN in 'R Codes' or empty column in file_name add to new df for output
+    report_df = report_df[report_df['R_codes'].notna() | (report_df['file_name'] is not None)]
+    # Mask to filter out rows with NaN R codes and empty file names which aren't '' just blank
+    report_df = report_df.dropna(subset=['file_name', 'R_codes'])
+    print(f"After filtering out NaN R codes and empty file names: {report_df.shape[0]} rows remaining")
+
+    # Drop duplicates based on 'sample_id', 'Assay', 'project_id' and 'file_name'
+    # Drop duplicates on all columns except certain ones
+    cols_to_check = [col for col in report_df.columns if col not in ['R_codes']]
+    report_df = report_df.drop_duplicates(subset=cols_to_check)
+    print(f"After dropping duplicates: {report_df.shape[0]} rows remaining")
+
+    # Save rows with multiple reports per assay to a separate file
+    multiple_reports = report_df.groupby(['sample_id', 'Assay', 'report_r_code']).size().reset_index(name='report_count')
+    multiple_reports = multiple_reports[multiple_reports['report_count'] > 1]
+    if not multiple_reports.empty:
+        print(f"Samples with multiple reports per assay: {multiple_reports.shape[0]}")
+        # Filter the original report_df to keep only samples with single reports
+        multiple_reports_df = pd.merge(report_df, multiple_reports[['sample_id', 'Assay', 'report_r_code']],
+                                 on=['sample_id', 'Assay', 'report_r_code'], how='inner')
+        multiple_reports_df.to_csv(f'{args.output}_multiple_reports.csv', index=False)
+    else:
+        print("No samples with multiple reports per assay found.")
+
+    # Remove rows with multiple reports per assay
+    report_df_grouped = report_df.groupby(['sample_id', 'Assay', 'report_r_code']).size().reset_index(name='report_count')
+    single_reports_df = report_df_grouped[report_df_grouped['report_count'] == 1]
+    # Filter the original report_df to keep only samples with single reports
+    report_df_filtered = pd.merge(report_df, single_reports_df[['sample_id', 'Assay', 'report_r_code']],
+                                 on=['sample_id', 'Assay', 'report_r_code'], how='inner')
+    print(f"After multiple reports: {report_df_filtered.shape[0]} rows remaining")
 
     # Create output files with no index
-    report_df.to_csv(f"{args.output}", index=False)
+    report_df_filtered.to_csv(f"{args.output}_to_process.csv", index=False)
 
 if __name__ == "__main__":
     main()
