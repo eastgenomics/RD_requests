@@ -1,6 +1,7 @@
 """
 This script retrieves and processes data from DNAnexus and Clarity.
 """
+
 import pandas as pd
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -41,7 +42,7 @@ def open_files(clarity):
     Open files and read in file contents to DataFrames
     """
     with open(clarity) as f:
-        clarity_df = pd.read_csv(f, delimiter=',')
+        clarity_df = pd.read_csv(f, delimiter=",")
 
     return clarity_df
 
@@ -57,10 +58,13 @@ def get_matching_projects(assay):
         A list of tuples containing project IDs and their names.
         Each tuple is in the format (project_id, project_name).
     """
-    pattern = rf'^002.*_{assay}$'
-    matching_projects = list(dxpy.find_projects(
-        name={'regexp': pattern}, describe=True))
-    matching_projects_tuple_list = [(proj['id'], proj['describe']['name']) for proj in matching_projects]
+    pattern = rf"^002.*_{assay}$"
+    matching_projects = list(
+        dxpy.find_projects(name={"regexp": pattern}, describe=True)
+    )
+    matching_projects_tuple_list = [
+        (proj["id"], proj["describe"]["name"]) for proj in matching_projects
+    ]
     print(f"Found {len(matching_projects_tuple_list)} matching projects.")
     return matching_projects_tuple_list
 
@@ -86,30 +90,32 @@ def query_reports_for_project(project_id, sample_ids):
     """
     records = []
     # pattern = rf'^\d+-({"|".join(sample_ids)})-[\w-]+_R\d+\.\d_(?:SNV|CNV)_1\.xlsx$'
-    pattern = rf'.*({"|".join(sample_ids)}).*xlsx'
+    pattern = rf".*({'|'.join(sample_ids)}).*xlsx"
     try:
-            matching_files = dxpy.find_data_objects(
-                project=project_id,
-                name=pattern,
-                name_mode='regexp',
-                describe={'fields': {'name': True}}
+        matching_files = dxpy.find_data_objects(
+            project=project_id,
+            name=pattern,
+            name_mode="regexp",
+            describe={"fields": {"name": True}},
+        )
+        # If no files found, return empty records
+        if not matching_files:
+            print(f"No files found for project {project_id} with pattern {pattern}")
+            return records
+        for file in matching_files:
+            file_name = file["describe"]["name"]
+            sample_id = file_name.split("-")[1]
+            records.append(
+                {
+                    "sample_id": sample_id,
+                    "project_id": project_id,
+                    "file_name": file_name,
+                }
             )
-            # If no files found, return empty records
-            if not matching_files:
-                print(f"No files found for project {project_id} with pattern {pattern}")
-                return records
-            for file in matching_files:
-                file_name = file['describe']['name']
-                sample_id = file_name.split('-')[1]
-                records.append({
-                    'sample_id': sample_id,
-                    'project_id': project_id,
-                    'file_name': file_name
-                })
     except Exception as e:
-        print(
-            f"Error fetching files for sample in project {project_id}: {e}")
+        print(f"Error fetching files for sample in project {project_id}: {e}")
     return records
+
 
 def fetch_all_reports_for_assay(df, assay, chunk_size=100, max_workers=64):
     """
@@ -134,21 +140,23 @@ def fetch_all_reports_for_assay(df, assay, chunk_size=100, max_workers=64):
     final_df : pd.DataFrame
         DataFrame containing the merged results with additional columns.
     """
-    sample_ids = df['sample_id'].tolist()
+    sample_ids = df["sample_id"].tolist()
     project_info = get_matching_projects(assay)
     project_dict = dict(project_info)
 
     # Chunk sample IDs to manage search load
-    chunks = [sample_ids[i:i + chunk_size]
-              for i in range(0, len(sample_ids), chunk_size)]
+    chunks = [
+        sample_ids[i : i + chunk_size] for i in range(0, len(sample_ids), chunk_size)
+    ]
 
     all_records = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for project_id in project_dict.keys():
             for chunk in chunks:
-                futures.append(executor.submit(
-                    query_reports_for_project, project_id, chunk))
+                futures.append(
+                    executor.submit(query_reports_for_project, project_id, chunk)
+                )
 
         for future in as_completed(futures):
             try:
@@ -159,8 +167,7 @@ def fetch_all_reports_for_assay(df, assay, chunk_size=100, max_workers=64):
 
     # Add project names to records
     for record in all_records:
-        record['project_name'] = project_dict.get(
-            record['project_id'], 'Unknown')
+        record["project_name"] = project_dict.get(record["project_id"], "Unknown")
 
     # Create a DataFrame from the records
     records_df = pd.DataFrame(all_records)
@@ -169,10 +176,10 @@ def fetch_all_reports_for_assay(df, assay, chunk_size=100, max_workers=64):
         print("No records found for the given sample IDs.")
         return df
     # Merge with the original df to retain additional columns
-    merged_df = pd.merge(df, records_df, on='sample_id', how='left')
+    merged_df = pd.merge(df, records_df, on="sample_id", how="left")
 
     # Identify samples with multiple projects
-    project_counts = merged_df.groupby('sample_id')['project_id'].nunique()
+    project_counts = merged_df.groupby("sample_id")["project_id"].nunique()
     multiple_projects = project_counts[project_counts > 1].index.tolist()
     print(f"Samples with multiple projects: {multiple_projects}")
     # Log errors for samples with multiple projects
@@ -180,7 +187,7 @@ def fetch_all_reports_for_assay(df, assay, chunk_size=100, max_workers=64):
         print(f"Error: Sample {sample} found in multiple projects.")
 
     # Filter out samples with multiple projects
-    final_df = merged_df[~merged_df['sample_id'].isin(multiple_projects)]
+    final_df = merged_df[~merged_df["sample_id"].isin(multiple_projects)]
 
     return final_df
 
@@ -198,7 +205,7 @@ def create_path(filename, assay, run):
         path (str): path to the given filename on clingen
     """
     # Handle NaN values
-    if pd.isna(run) or run == 'nan':
+    if pd.isna(run) or run == "nan":
         # print(f"Warning: run is NaN or 'nan' for filename {filename}. Returning None.")
         # print(assay)
         return None
@@ -206,9 +213,9 @@ def create_path(filename, assay, run):
     # Convert to string if it's not already
     run = str(run)
 
-    base_path= r"/appdata/clingen/cg/Regional\ Genetics\ Laboratories/Molecular\ Genetics/Data\ archive/Sequencing\ HT/"
+    base_path = r"/appdata/clingen/cg/Regional\ Genetics\ Laboratories/Molecular\ Genetics/Data\ archive/Sequencing\ HT/"
 
-    run_without_prefix = re.sub(r'^002_', '', run)
+    run_without_prefix = re.sub(r"^002_", "", run)
     if assay == "CEN":
         path = base_path + rf"{assay}/Run\ folders/{run_without_prefix}/{filename}"
     elif assay == "WES":
@@ -226,14 +233,12 @@ def find_file_name(search_query):
     -------
         filename (str): a file name, or None if no or multiple matches found
     """
-    files = list(dxpy.find_data_objects(
-        name=search_query,
-        name_mode="glob",
-        describe=True
-    ))
+    files = list(
+        dxpy.find_data_objects(name=search_query, name_mode="glob", describe=True)
+    )
     for file in files:
         filenames = []
-        filenames.append(file.get('describe').get('name'))
+        filenames.append(file.get("describe").get("name"))
         if len(filenames) != 1:
             print(f"{search_query} returned multiple/no files")
             return None
@@ -248,7 +253,7 @@ def filter_duplicate_files(df):
       but filter out files that don't contain _CNV_ or _SNV_ and end in _2
     """
     # Group by sample_id
-    grouped = df.groupby('sample_id')
+    grouped = df.groupby("sample_id")
     filtered_rows = []
 
     for sample_id, group in grouped:
@@ -256,12 +261,14 @@ def filter_duplicate_files(df):
             # Check each file in the group
             files_to_keep = []
             for _, row in group.iterrows():
-                filename = row['file_name']
+                filename = row["file_name"]
                 # Keep files that contain _CNV_ or _SNV_
-                if '_CNV_' in filename or '_SNV_' in filename:
+                if "_CNV_" in filename or "_SNV_" in filename:
                     files_to_keep.append(row)
                 # Filter out files that don't contain _CNV_ or _SNV_ and end in _2
-                elif not ('_CNV_' in filename or '_SNV_' in filename) and filename.endswith('_2.xlsx'):
+                elif not (
+                    "_CNV_" in filename or "_SNV_" in filename
+                ) and filename.endswith("_2.xlsx"):
                     continue  # Skip this file
                 else:
                     files_to_keep.append(row)  # Keep other files
@@ -273,6 +280,7 @@ def filter_duplicate_files(df):
 
     return pd.DataFrame(filtered_rows).reset_index(drop=True)
 
+
 def main():
     """
     Script entry point
@@ -281,17 +289,17 @@ def main():
     args = parse_args()
 
     # Read data into dataframes
-    clarity_df= open_files(args.clarity_extract)
+    clarity_df = open_files(args.clarity_extract)
 
     # Process data to construct a path for each specimen
     clarity_df = clarity_df.astype(str)
     # create df with column by splitting the Beaker Procedure Name to create a new column for assay
-    clarity_df['Assay'] = clarity_df['Beaker Procedure Name'].str.split(' ').str[0]
-    clarity_df['sample_id'] = clarity_df['Specimen Identifier'].str.split('-').str[1]
-    assays = ['TWE', 'CEN']
+    clarity_df["Assay"] = clarity_df["Beaker Procedure Name"].str.split(" ").str[0]
+    clarity_df["sample_id"] = clarity_df["Specimen Identifier"].str.split("-").str[1]
+    assays = ["TWE", "CEN"]
     report_df = pd.DataFrame()
     for assay in assays:
-        assay_samples = clarity_df[clarity_df['Assay'] == assay]
+        assay_samples = clarity_df[clarity_df["Assay"] == assay]
         assay_df = fetch_all_reports_for_assay(assay_samples, assay)
         report_df = pd.concat([report_df, assay_df], ignore_index=True)
 
@@ -300,70 +308,96 @@ def main():
     print(report_df.iloc[0:2, :])
 
     # Split R codes into a list
-    report_df['R_codes'] = report_df['Test Directory Test Code'].str.split('|')
+    report_df["R_codes"] = report_df["Test Directory Test Code"].str.split("|")
     # remove decimal points from R codes
-    report_df['R_codes'] = report_df['R_codes'].apply(
-        lambda x: [re.sub(r'\.\d+', '', code) for code in x if code.startswith('R')]
+    report_df["R_codes"] = report_df["R_codes"].apply(
+        lambda x: [re.sub(r"\.\d+", "", code) for code in x if code.startswith("R")]
     )
 
     # Add the path to the processed reports
-    report_df['path'] = report_df.apply(
-        lambda x: create_path(x['file_name'], x['Assay'], x['project_name']),
-        axis=1
+    report_df["path"] = report_df.apply(
+        lambda x: create_path(x["file_name"], x["Assay"], x["project_name"]), axis=1
     )
 
     # Add specimen ID to the processed report_df
-    report_df['specimen_id'] = report_df['file_name'].str.split('-').str[0]
-    report_df['full_sample_id'] = report_df['specimen_id'] + "-" + report_df['sample_id']
+    report_df["specimen_id"] = report_df["file_name"].str.split("-").str[0]
+    report_df["full_sample_id"] = (
+        report_df["specimen_id"] + "-" + report_df["sample_id"]
+    )
     # create report_r_code column from file_name
-    report_df['report_r_code'] = report_df['file_name'].str.extract(r'_(R\d+\.\d+)_')[0]
+    report_df["report_r_code"] = report_df["file_name"].str.extract(r"_(R\d+\.\d+)_")[0]
 
     # Stratify into multiple files for different outcomes
     # Filter out all rows where filename contains _CNV_ or _mosaic_
-    report_df = report_df[~report_df['file_name'].str.contains('_CNV_', na=False)]
-    report_df = report_df[~report_df['file_name'].str.contains('_mosaic_', na=False)]
-    print(f"After filtering out CNV and mosaic files: {report_df.shape[0]} rows remaining")
+    report_df = report_df[~report_df["file_name"].str.contains("_CNV_", na=False)]
+    report_df = report_df[~report_df["file_name"].str.contains("_mosaic_", na=False)]
+    print(
+        f"After filtering out CNV and mosaic files: {report_df.shape[0]} rows remaining"
+    )
 
-    missing_data = report_df['file_name'].isna() | report_df['R_codes'].isna()
+    missing_data = report_df["file_name"].isna() | report_df["R_codes"].isna()
     mising_data_df = report_df[missing_data]
     if missing_data.any():
-        print(f"Warning: {missing_data.sum()} rows have missing data in 'file_name' or 'R_codes'.")
-    mising_data_df.to_csv(f'{args.output}_missing_data.csv', index=False)
+        print(
+            f"Warning: {missing_data.sum()} rows have missing data in 'file_name' or 'R_codes'."
+        )
+    mising_data_df.to_csv(f"{args.output}_missing_data.csv", index=False)
 
     # Remove rows with NaN in 'R Codes' or empty column in file_name add to new df for output
-    report_df = report_df[report_df['R_codes'].notna() | (report_df['file_name'] is not None)]
+    report_df = report_df[
+        report_df["R_codes"].notna() | (report_df["file_name"] is not None)
+    ]
     # Mask to filter out rows with NaN R codes and empty file names which aren't '' just blank
-    report_df = report_df.dropna(subset=['file_name', 'R_codes'])
-    print(f"After filtering out NaN R codes and empty file names: {report_df.shape[0]} rows remaining")
+    report_df = report_df.dropna(subset=["file_name", "R_codes"])
+    print(
+        f"After filtering out NaN R codes and empty file names: {report_df.shape[0]} rows remaining"
+    )
 
     # Drop duplicates based on 'sample_id', 'Assay', 'project_id' and 'file_name'
     # Drop duplicates on all columns except certain ones
-    cols_to_check = [col for col in report_df.columns if col not in ['R_codes']]
+    cols_to_check = [col for col in report_df.columns if col not in ["R_codes"]]
     report_df = report_df.drop_duplicates(subset=cols_to_check)
     print(f"After dropping duplicates: {report_df.shape[0]} rows remaining")
 
     # Save rows with multiple reports per assay to a separate file
-    multiple_reports = report_df.groupby(['sample_id', 'Assay', 'report_r_code']).size().reset_index(name='report_count')
-    multiple_reports = multiple_reports[multiple_reports['report_count'] > 1]
+    multiple_reports = (
+        report_df.groupby(["sample_id", "Assay", "report_r_code"])
+        .size()
+        .reset_index(name="report_count")
+    )
+    multiple_reports = multiple_reports[multiple_reports["report_count"] > 1]
     if not multiple_reports.empty:
         print(f"Samples with multiple reports per assay: {multiple_reports.shape[0]}")
         # Filter the original report_df to keep only samples with single reports
-        multiple_reports_df = pd.merge(report_df, multiple_reports[['sample_id', 'Assay', 'report_r_code']],
-                                 on=['sample_id', 'Assay', 'report_r_code'], how='inner')
-        multiple_reports_df.to_csv(f'{args.output}_multiple_reports.csv', index=False)
+        multiple_reports_df = pd.merge(
+            report_df,
+            multiple_reports[["sample_id", "Assay", "report_r_code"]],
+            on=["sample_id", "Assay", "report_r_code"],
+            how="inner",
+        )
+        multiple_reports_df.to_csv(f"{args.output}_multiple_reports.csv", index=False)
     else:
         print("No samples with multiple reports per assay found.")
 
     # Remove rows with multiple reports per assay
-    report_df_grouped = report_df.groupby(['sample_id', 'Assay', 'report_r_code']).size().reset_index(name='report_count')
-    single_reports_df = report_df_grouped[report_df_grouped['report_count'] == 1]
+    report_df_grouped = (
+        report_df.groupby(["sample_id", "Assay", "report_r_code"])
+        .size()
+        .reset_index(name="report_count")
+    )
+    single_reports_df = report_df_grouped[report_df_grouped["report_count"] == 1]
     # Filter the original report_df to keep only samples with single reports
-    report_df_filtered = pd.merge(report_df, single_reports_df[['sample_id', 'Assay', 'report_r_code']],
-                                 on=['sample_id', 'Assay', 'report_r_code'], how='inner')
+    report_df_filtered = pd.merge(
+        report_df,
+        single_reports_df[["sample_id", "Assay", "report_r_code"]],
+        on=["sample_id", "Assay", "report_r_code"],
+        how="inner",
+    )
     print(f"After multiple reports: {report_df_filtered.shape[0]} rows remaining")
 
     # Create output files with no index
     report_df_filtered.to_csv(f"{args.output}_to_process.csv", index=False)
+
 
 if __name__ == "__main__":
     main()
