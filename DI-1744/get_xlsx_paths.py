@@ -213,7 +213,7 @@ def create_path(filename, assay, run):
     # Convert to string if it's not already
     run = str(run)
 
-    base_path = r"/appdata/clingen/cg/Regional\ Genetics\ Laboratories/Molecular\ Genetics/Data\ archive/Sequencing\ HT/"
+    base_path = r"/appdata/clingen/cg/Regional Genetics Laboratories/Molecular Genetics/Data archive/Sequencing HT/"
 
     run_without_prefix = re.sub(r"^002_", "", run)
     if assay == "CEN":
