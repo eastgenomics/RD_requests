@@ -40,8 +40,13 @@ def open_files(clarity):
     """
     Open files and read in file contents to DataFrames
     """
-    with open(clarity) as f:
-        clarity_df = pd.read_csv(f, delimiter=",")
+    try:
+        with open(clarity) as f:
+            clarity_df = pd.read_csv(f, delimiter='\t')
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Clarity extract file not found: {clarity}")
+    except Exception as e:
+        raise Exception(f"Error reading clarity extract: {e}")
 
     return clarity_df
 
@@ -196,7 +201,7 @@ def create_path(filename, assay, run):
     Create a path to a specific file on clingen
     Parameters
     ----------
-        assay (str): either CEN or WES
+        assay (str): either CEN or WES/TWE
         filename (str): filename for the xlsx report
         run (str): sequencing run name
     Returns
@@ -217,8 +222,11 @@ def create_path(filename, assay, run):
     run_without_prefix = re.sub(r"^002_", "", run)
     if assay == "CEN":
         path = base_path + rf"{assay}/Run\ folders/{run_without_prefix}/{filename}"
-    elif assay == "WES":
+    elif assay in ("WES", "TWE"):
         path = base_path + rf"{assay}/{run_without_prefix}/{filename}"
+    else:
+        print(f"Warning: Unknown assay '{assay}' for filename {filename}. Returning None.")
+        return None
     return path
 
 
@@ -255,7 +263,7 @@ def filter_duplicate_files(df):
     grouped = df.groupby("sample_id")
     filtered_rows = []
 
-    for sample_id, group in grouped:
+    for _sample_id, group in grouped:
         if len(group) == 2:  # Exactly 2 reports
             # Check each file in the group
             files_to_keep = []
