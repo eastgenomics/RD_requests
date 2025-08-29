@@ -39,8 +39,8 @@ def open_files(clarity):
     Open files and read in file contents to DataFrames
     """
     try:
-        with open(clarity) as f:
-            clarity_df = pd.read_csv(f, delimiter='\t')
+        with open(clarity) as fh:
+            clarity_df = pd.read_csv(fh, delimiter=',')
     except FileNotFoundError:
         raise FileNotFoundError(f"Clarity extract file not found: {clarity}")
     except Exception as e:
@@ -91,7 +91,10 @@ def query_reports_for_project(project_id, sample_ids):
         A list of dictionaries containing sample ID, project ID, and file name.
     """
     records = []
-    # pattern = rf'^\d+-({"|".join(sample_ids)})-[\w-]+_R\d+\.\d_(?:SNV|CNV)_1\.xlsx$'
+    # Short-circuit if no sample IDs to search
+    if not sample_ids:
+        return records
+
     pattern = rf".*({'|'.join(sample_ids)}).*xlsx"
     try:
         matching_files = dxpy.find_data_objects(
@@ -106,7 +109,13 @@ def query_reports_for_project(project_id, sample_ids):
             return records
         for file in matching_files:
             file_name = file["describe"]["name"]
-            sample_id = file_name.split("-")[1]
+            # Robustly extract the sample_id (between first and second hyphen)
+            parts = file_name.split("-")
+            sample_id = parts[1] if len(parts) > 2 else None
+            if sample_id is None:
+                print(f"Could not parse sample_id from file name: {file_name}")
+                continue
+
             records.append(
                 {
                     "sample_id": sample_id,
@@ -208,8 +217,6 @@ def create_path(filename, assay, run):
     """
     # Handle NaN values
     if pd.isna(run) or run == "nan":
-        # print(f"Warning: run is NaN or 'nan' for filename {filename}. Returning None.")
-        # print(assay)
         return None
 
     # Convert to string if it's not already
@@ -304,6 +311,7 @@ def main():
     assays = ["TWE", "CEN"]
     report_df = pd.DataFrame()
     for assay in assays:
+        print(f"Processing assay: {assay}")
         assay_samples = clarity_df[clarity_df["Assay"] == assay]
         assay_df = fetch_all_reports_for_assay(assay_samples, assay)
         report_df = pd.concat([report_df, assay_df], ignore_index=True)
