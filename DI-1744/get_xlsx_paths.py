@@ -19,6 +19,7 @@ def parse_args():
     parser.add_argument(
         "--clarity_extract",
         type=str,
+        required=True,
         help=("Path to Clarity extract file"),
     )
     parser.add_argument(
@@ -29,9 +30,6 @@ def parse_args():
         help=("Output file name for the processed data"),
     )
     args = parser.parse_args()
-
-    if not args.clarity_extract:
-        parser.error("The --clarity_extract argument is required.")
 
     return args
 
