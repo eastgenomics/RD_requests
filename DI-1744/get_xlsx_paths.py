@@ -335,12 +335,12 @@ def main():
     )
 
     missing_data = report_df["file_name"].isna() | report_df["R_codes"].isna()
-    mising_data_df = report_df[missing_data]
+    missing_data_df = report_df[missing_data]
     if missing_data.any():
         print(
             f"Warning: {missing_data.sum()} rows have missing data in 'file_name' or 'R_codes'."
         )
-    mising_data_df.to_csv(f"{args.output}_missing_data.csv", index=False)
+    missing_data_df.to_csv(f"{args.output}_missing_data.csv", index=False)
 
     # Mask to filter out rows with NaN R codes and empty file names which aren't '' just blank
     report_df = report_df.dropna(subset=["file_name", "R_codes"])
