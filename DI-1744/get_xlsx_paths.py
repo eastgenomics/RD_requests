@@ -8,7 +8,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import argparse
 import dxpy
-import swifter
 
 
 def parse_args():
@@ -343,17 +342,12 @@ def main():
         )
     mising_data_df.to_csv(f"{args.output}_missing_data.csv", index=False)
 
-    # Remove rows with NaN in 'R Codes' or empty column in file_name add to new df for output
-    report_df = report_df[
-        report_df["R_codes"].notna() | (report_df["file_name"] is not None)
-    ]
     # Mask to filter out rows with NaN R codes and empty file names which aren't '' just blank
     report_df = report_df.dropna(subset=["file_name", "R_codes"])
     print(
         f"After filtering out NaN R codes and empty file names: {report_df.shape[0]} rows remaining"
     )
 
-    # Drop duplicates based on 'sample_id', 'Assay', 'project_id' and 'file_name'
     # Drop duplicates on all columns except certain ones
     cols_to_check = [col for col in report_df.columns if col not in ["R_codes"]]
     report_df = report_df.drop_duplicates(subset=cols_to_check)
