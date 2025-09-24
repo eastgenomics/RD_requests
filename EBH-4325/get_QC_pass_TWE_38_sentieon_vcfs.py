@@ -215,7 +215,14 @@ def main():
         output_df["VCF_ID"],
         output_df["VCF_Index_ID"]
     ):
+        # Clone the VCF
         dxpy.bindings.DXFile(dxid=vcf_id, project=proj_id).clone(
+            project=DESTINATION_PROJ_ID,
+            folder=DESTINATION_FOLDER_PATH
+        )
+
+        # Clone the VCF index
+        dxpy.bindings.DXFile(dxid=vcf_index_id, project=proj_id).clone(
             project=DESTINATION_PROJ_ID,
             folder=DESTINATION_FOLDER_PATH
         )
