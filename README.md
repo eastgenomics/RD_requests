@@ -15,6 +15,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-1141] | Compare Consequence, HGVSc, and HGVSp values between VEP versions and compare with output batch of VariantValidator |
 | [DI-1466] | Script to download dias files |
 | [DI-1480] | Script to compare filtered variants for the same samples |
+| [EBH-4325] | Script to clone QC passing TWE VCFs from 002s to specific 003 project |
 
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338
@@ -29,3 +30,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-1141]: https://cuhbioinformatics.atlassian.net/browse/DI-1141
 [DI-1466]: https://cuhbioinformatics.atlassian.net/browse/DI-1466
 [DI-1480]: https://cuhbioinformatics.atlassian.net/browse/DI-1480
+[EBH-4325]: https://cuhbioinformatics.atlassian.net/browse/EBH-4325
