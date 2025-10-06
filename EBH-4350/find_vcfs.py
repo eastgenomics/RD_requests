@@ -138,7 +138,13 @@ def remove_controls_and_dups(df: pd.DataFrame):
     pd.DataFrame
         A DataFrame with control samples and duplicates removed.
     """
-    df_no_control = df[~df["sample"].str.contains("Q")]
+    # Remove controls and X numbers
+    valid_pattern = r"^\d{9}-\d{5}R\d{4}"
+    mask = df["sample"].str.contains(valid_pattern, regex=True) & ~df[
+        "sample"
+    ].str.contains(r"0--|NA|Oncospan|ctrl|Q", case=False, regex=True)
+    df_no_control = df[mask]
+
     # Remove dups, keeping the latest VCF for each sample
     df_no_control = df_no_control.sort_values(by="created", ascending=False)
     df_no_dups = df_no_control.drop_duplicates(subset="sample", keep="first")
@@ -160,6 +166,11 @@ def main():
 
     all_vcfs = convert_to_df(vcfs)
     all_vcf_no_dups = remove_controls_and_dups(all_vcfs)
+    all_vcf_no_dups.to_csv(
+        "GRCh38_CEN_TWE_Sentieon_VCFs_no_controls_or_dups.tsv",
+        sep="\t",
+        index=False,
+    )
 
     non_live = all_vcf_no_dups[all_vcf_no_dups["archive_state"] != "live"]
 
