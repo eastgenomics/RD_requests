@@ -190,7 +190,7 @@ def remove_controls_and_dups(df: pd.DataFrame):
         A DataFrame with control samples and duplicates removed.
     """
     # Remove controls and X numbers
-    valid_pattern = r"^\d{9}-\d{5}R\d{4}"
+    valid_pattern = r"^\d{9}-\d{5}[RSK]\d{4}"
     mask = df["sample"].str.contains(valid_pattern, regex=True) & ~df[
         "sample"
     ].str.contains(r"0--|NA|Oncospan|ctrl|Q", case=False, regex=True)
