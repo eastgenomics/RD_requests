@@ -222,19 +222,15 @@ def main() -> None:
 
     all_vcfs = convert_to_df(vcfs)
     all_vcf_no_dups = remove_controls_and_dups(all_vcfs)
+
+    # Write out summary TSV of files found
     all_vcf_no_dups.to_csv(
-        "GRCh38_CEN_TWE_Sentieon_VCFs_no_controls_or_dups.tsv",
+        f"{args.output_prefix}VCFs_no_controls_or_dups.tsv",
         sep="\t",
         index=False,
     )
 
     non_live = all_vcf_no_dups[all_vcf_no_dups["archive_state"] != "live"]
-
-    # Write out summary CSV of files found
-    all_vcf_no_dups.to_csv(
-        f"{args.output_prefix}all_VCFs_summary.csv",
-        index=False,
-    )
 
     # Write out VCFs to unarchive and call unarchiving
     if not non_live.empty:
