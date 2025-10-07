@@ -1,10 +1,54 @@
 import dxpy
 import pandas as pd
+import argparse
 
 
-def find_projects(name: str, name_mode: str) -> list:
+def parse_arguments():
     """
-    Find projects by name.
+    Parse command-line arguments.
+
+    Returns
+    -------
+    args: argparse.Namespace
+        Parsed arguments
+    """
+    parser = argparse.ArgumentParser(
+        description="Search for VCF files in DNAnexus projects."
+    )
+    parser.add_argument(
+        "--before_date", type=str, required=False,
+        help="Date to search before (YYYY-MM-DD)."
+    )
+    parser.add_argument(
+        "--after_date", type=str, required=True,
+        help="Date to search after (YYYY-MM-DD)."
+    )
+    parser.add_argument(
+        "--project_search_term", type=str, required=True,
+        help="Search term for project names."
+    )
+    parser.add_argument(
+        "--file_search_term", type=str, required=True,
+        help="Regex pattern for file names."
+    )
+    parser.add_argument(
+        "--unarchive", action="store_true", default=False,
+        help="Whether to unarchive files."
+    )
+    parser.add_argument(
+        "--output_prefix", type=str, required=False, default="",
+        help="Prefix for output file names."
+    )
+    return parser.parse_args()
+
+
+def find_projects(name: str,
+                  name_mode: str = "regexp",
+                  created_after: str = None,
+                  created_before: str = None
+) -> list:
+    """
+    Find projects by name and created date.
 
     Parameters
     ----------
@@ -12,23 +56,30 @@ def find_projects(name: str, name_mode: str) -> list:
         The name or glob pattern to search for.
     name_mode : str
         The mode for name matching.
+    created_after : str, optional
+        The date to search for projects created after (YYYY-MM-DD).
+    created_before : str, optional
+        The date to search for projects created before (YYYY-MM-DD).
 
     Returns
     -------
     list
-        A list of project objects (dicts) matching the name.
+        A list of project objects (dicts) matching the name and date criteria.
     """
     projects = list(
         dxpy.find_projects(
             name=name,
             name_mode=name_mode,
+            created_after=created_after,
+            created_before=created_before,
             describe={"fields": {"name": True}},
         )
     )
     return projects
 
 
-def find_files_in_project(project: dict, name: str, name_mode: str) -> list:
+def find_files_in_project(project: dict, name: str,
+                          name_mode: str = "regexp") -> list:
     """
     Find files in a project by name.
 
@@ -152,13 +203,18 @@ def remove_controls_and_dups(df: pd.DataFrame):
     return df_no_dups
 
 
-def main():
-    vcf_projects = find_projects("(^002_.*_38_(CEN|TWE)$)", name_mode="regexp")
+def main() -> None:
+    args = parse_arguments()
 
+    vcf_projects = find_projects(
+        name=args.project_search_term,
+        created_after=args.after_date,
+        created_before=args.before_date
+    )
     vcfs = []
     for project in vcf_projects:
         vcfs_in_project = find_files_in_project(
-            project, "*recalibrated_Haplotyper.vcf.gz", "glob"
+            project, args.file_search_term
         )
         for vcf in vcfs_in_project:
             vcf["project_name"] = project["describe"]["name"]
@@ -174,20 +230,29 @@ def main():
 
     non_live = all_vcf_no_dups[all_vcf_no_dups["archive_state"] != "live"]
 
+    # Write out summary CSV of files found
+    all_vcf_no_dups.to_csv(
+        f"{args.output_prefix}all_VCFs_summary.csv",
+        index=False,
+    )
+
     # Write out VCFs to unarchive and call unarchiving
     if not non_live.empty:
         non_live["project_file"].to_csv(
-            "GRCh38_CEN_WES_Sentieon_VCFs_to_unarchive.txt",
+            f"{args.output_prefix}VCFs_to_unarchive.txt",
             index=False,
             header=False,
         )
-        bulk_unarchive_per_project(non_live)
+        if args.unarchive:
+            print("Unarchiving files...")
+            bulk_unarchive_per_project(non_live)
 
     # Write out file IDs for each assay
-    for assay in ["CEN", "TWE"]:
+    for assay in all_vcf_no_dups["assay"].unique():
         assay_vcfs = all_vcf_no_dups[all_vcf_no_dups["assay"] == assay]
+
         assay_vcfs["project_file"].to_csv(
-            f"GRCh38_{assay}_Sentieon_VCFs_no_controls_or_dups.txt",
+            f"{args.output_prefix}{assay}_VCFs_ids.txt",
             index=False,
             header=False,
         )
