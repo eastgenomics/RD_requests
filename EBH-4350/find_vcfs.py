@@ -39,6 +39,17 @@ def parse_arguments():
         "--output_prefix", type=str, required=False, default="",
         help="Prefix for output file names."
     )
+    parser.add_argument(
+        "--exclude_projects", nargs='+', type=str, required=False, default="",
+        help="List of projects to exclude if found in search, ie validation runs." \
+        "example format \"--exclude_projects 002_241003_A01295_0427_AHJWJ3DRX5_MYE" \
+        "002_241003_A01295_0426_BHJJGLDRX5_MYE\""
+    )
+    parser.add_argument(
+        "--exclude_samples", nargs='+', type=str, required=False, default="",
+        help="List of samples to exclude if found in search, ie top-up samples." \
+        "example format \" --exclude_samples 23361K0031 23361K0032\""
+    )
     return parser.parse_args()
 
 
@@ -139,7 +150,9 @@ def bulk_unarchive_per_project(df: pd.DataFrame):
             raise RuntimeError("Error unarchiving files") from error
 
 
-def convert_to_df(vcf_list: list):
+def convert_to_df(vcf_list: list,
+                  exclude_projects: list,
+                  exclude_samples: list):
     """
     Convert a list of VCF file metadata to a pandas DataFrame.
 
@@ -170,6 +183,15 @@ def convert_to_df(vcf_list: list):
     df["sample"] = df["name"].str.split("-").str[0:2].str.join("-")
     df["project_file"] = df["project_id"] + ":" + df["file_id"]
     df["assay"] = df["project_name"].str.split("_").str[-1]
+
+    print(exclude_projects)
+
+    # remove unwanted samples and projects
+    df=df[~df["project_name"].isin(exclude_projects)]
+
+    # Only know part of top up samples so need to set up a regex
+    pattern = "|".join(exclude_samples)
+    df = df[~df["sample"].str.contains(pattern, regex=True)]
 
     return df
 
@@ -220,7 +242,7 @@ def main() -> None:
             vcf["project_name"] = project["describe"]["name"]
         vcfs.extend(vcfs_in_project)
 
-    all_vcfs = convert_to_df(vcfs)
+    all_vcfs = convert_to_df(vcfs, args.exclude_projects, args.exclude_samples)
     all_vcf_no_dups = remove_controls_and_dups(all_vcfs)
 
     # Write out summary TSV of files found
