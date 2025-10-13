@@ -153,9 +153,11 @@ def bulk_unarchive_per_project(df: pd.DataFrame):
             raise RuntimeError("Error unarchiving files") from error
 
 
-def convert_to_df(vcf_list: list,
-                  exclude_projects: list,
-                  exclude_samples: list):
+def convert_to_df(
+    vcf_list: list,
+    exclude_projects: list,
+    exclude_samples: list
+) -> pd.DataFrame:
     """
     Convert a list of VCF file metadata to a pandas DataFrame, exclude rows
     from DF using exclude_projects and exclude_samples lists.
