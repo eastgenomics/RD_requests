@@ -49,7 +49,7 @@ def parse_arguments():
     parser.add_argument(
         "--exclude_samples", nargs='+', type=str, required=False, default=[],
         help="List of samples to exclude if found in search, ie top-up samples." \
-        "example format \" --exclude_samples 23361K0031 23361K0032\""
+        "example format \" --exclude_samples 12345K0067 12345K0089\""
     )
     return parser.parse_args()
 
