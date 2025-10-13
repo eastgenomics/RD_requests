@@ -1,6 +1,7 @@
 import dxpy
 import pandas as pd
 import argparse
+import re
 
 
 def parse_arguments():
@@ -39,6 +40,17 @@ def parse_arguments():
         "--output_prefix", type=str, required=False, default="",
         help="Prefix for output file names."
     )
+    parser.add_argument(
+        "--exclude_projects", nargs='+', type=str, required=False, default=[],
+        help="List of projects IDs to exclude if found in search, e.g. validation runs." \
+        "example format \"--exclude_projects project-xxxx" \
+        "project-xxxx\""
+    )
+    parser.add_argument(
+        "--exclude_samples", nargs='+', type=str, required=False, default=[],
+        help="List of samples to exclude if found in search, ie top-up samples." \
+        "example format \" --exclude_samples 12345K0067 12345K0089\""
+    )
     return parser.parse_args()
 
 
@@ -75,6 +87,10 @@ def find_projects(name: str,
             describe={"fields": {"name": True}},
         )
     )
+
+    if not projects:
+        raise RuntimeError("No projects found matching criteria")
+
     return projects
 
 
@@ -139,14 +155,23 @@ def bulk_unarchive_per_project(df: pd.DataFrame):
             raise RuntimeError("Error unarchiving files") from error
 
 
-def convert_to_df(vcf_list: list):
+def convert_to_df(
+    vcf_list: list,
+    exclude_projects: list,
+    exclude_samples: list
+) -> pd.DataFrame:
     """
-    Convert a list of VCF file metadata to a pandas DataFrame.
+    Convert a list of VCF file metadata to a pandas DataFrame, exclude rows
+    from DF using exclude_projects and exclude_samples lists.
 
     Parameters
     ----------
     vcf_list : list
         list of VCF file metadata dicts.
+    exclude_projects : list
+        List of project IDs to exclude from the DataFrame.
+    exclude_samples : list
+        List of sample names or patterns to exclude from the DataFrame.
 
     Returns
     -------
@@ -171,10 +196,22 @@ def convert_to_df(vcf_list: list):
     df["project_file"] = df["project_id"] + ":" + df["file_id"]
     df["assay"] = df["project_name"].str.split("_").str[-1]
 
+    if exclude_projects:
+        print(f"Excluding the following projects: {exclude_projects}")
+        # remove unwanted samples and projects
+        df = df[~df["project_id"].isin(exclude_projects)]
+
+    if exclude_samples:
+        print(f"Excluding the following samples: {exclude_samples}")
+        # Only know part of top up samples so need to set up a regex
+        escaped_samples = [re.escape(sample) for sample in exclude_samples]
+        pattern = "|".join(escaped_samples)
+        df = df[~df["sample"].str.contains(pattern, regex=True)]
+
     return df
 
 
-def remove_controls_and_dups(df: pd.DataFrame):
+def remove_controls_and_dups(df: pd.DataFrame) -> tuple:
     """
     Remove control samples (containing "Q") and duplicates (by sample)
     from the DataFrame.
@@ -186,21 +223,40 @@ def remove_controls_and_dups(df: pd.DataFrame):
 
     Returns
     -------
-    pd.DataFrame
-        A DataFrame with control samples and duplicates removed.
+    tuple
+        A tuple containing two DataFrames:
+        - df_no_control (pd.DataFrame): A DataFrame with control samples removed,
+          including additional columns for project_list (list of all projects
+          the sample is found in) and project_count (number of projects the
+          sample is found in).
+        - df_no_dups (pd.DataFrame): A DataFrame with duplicates removed,
+          keeping the latest VCF for each sample based on the "created" column.
     """
     # Remove controls and X numbers
     valid_pattern = r"^\d{9}-\d{5}[RSK]\d{4}"
     mask = df["sample"].str.contains(valid_pattern, regex=True) & ~df[
         "sample"
     ].str.contains(r"0--|NA|Oncospan|ctrl|Q", case=False, regex=True)
-    df_no_control = df[mask]
+    df_no_control = df[mask].copy()
+
+    # Add column containing a list of all projects the sample is found in
+    project_lists = (
+        df_no_control.groupby("sample")["project_name"]
+        .apply(lambda x: list(x.unique()))
+        .reset_index(name="project_list")
+    )
+
+    # Merge the project_list back into df_no_control
+    df_no_control = df_no_control.merge(project_lists, on="sample", how="left")
+
+    # Add a column with the count of projects each sample is found in
+    df_no_control["project_count"] = df_no_control["project_list"].apply(len)
 
     # Remove dups, keeping the latest VCF for each sample
     df_no_control = df_no_control.sort_values(by="created", ascending=False)
-    df_no_dups = df_no_control.drop_duplicates(subset="sample", keep="first")
+    df_no_dups_no_control = df_no_control.drop_duplicates(subset="sample", keep="first")
 
-    return df_no_dups
+    return df_no_control, df_no_dups_no_control
 
 
 def main() -> None:
@@ -220,17 +276,29 @@ def main() -> None:
             vcf["project_name"] = project["describe"]["name"]
         vcfs.extend(vcfs_in_project)
 
-    all_vcfs = convert_to_df(vcfs)
-    all_vcf_no_dups = remove_controls_and_dups(all_vcfs)
+    all_vcfs = convert_to_df(vcfs, args.exclude_projects, args.exclude_samples)
+    df_no_control, df_no_dups_no_control = remove_controls_and_dups(all_vcfs)
 
     # Write out summary TSV of files found
-    all_vcf_no_dups.to_csv(
-        f"{args.output_prefix}VCFs_no_controls_or_dups.tsv",
+    all_vcfs.to_csv(
+        f"{args.output_prefix}VCFs_all.tsv",
         sep="\t",
         index=False,
     )
 
-    non_live = all_vcf_no_dups[all_vcf_no_dups["archive_state"] != "live"]
+    df_no_control.to_csv(
+        f"{args.output_prefix}VCFs_no_controls.tsv",
+        sep="\t",
+        index=False,
+    )
+
+    df_no_dups_no_control.to_csv(
+        f"{args.output_prefix}VCFs_no_dups_no_control.tsv",
+        sep="\t",
+        index=False,
+    )
+
+    non_live = df_no_dups_no_control[df_no_dups_no_control["archive_state"] != "live"]
 
     # Write out VCFs to unarchive and call unarchiving
     if not non_live.empty:
@@ -244,8 +312,8 @@ def main() -> None:
             bulk_unarchive_per_project(non_live)
 
     # Write out file IDs for each assay
-    for assay in all_vcf_no_dups["assay"].unique():
-        assay_vcfs = all_vcf_no_dups[all_vcf_no_dups["assay"] == assay]
+    for assay in df_no_dups_no_control["assay"].unique():
+        assay_vcfs = df_no_dups_no_control[df_no_dups_no_control["assay"] == assay]
 
         assay_vcfs["project_file"].to_csv(
             f"{args.output_prefix}{assay}_VCFs_ids.txt",
