@@ -42,9 +42,9 @@ def parse_arguments():
     )
     parser.add_argument(
         "--exclude_projects", nargs='+', type=str, required=False, default=[],
-        help="List of projects to exclude if found in search, ie validation runs." \
-        "example format \"--exclude_projects 002_241003_A01295_0427_AHJWJ3DRX5_MYE" \
-        "002_241003_A01295_0426_BHJJGLDRX5_MYE\""
+        help="List of projects IDs to exclude if found in search, e.g. validation runs." \
+        "example format \"--exclude_projects project-xxxx" \
+        "project-xxxx\""
     )
     parser.add_argument(
         "--exclude_samples", nargs='+', type=str, required=False, default=[],
@@ -88,7 +88,9 @@ def find_projects(name: str,
         )
     )
 
-    assert len(projects) > 0, "No projects found matching criteria"
+    if not projects:
+        raise RuntimeError("No projects found matching criteria")
+
     return projects
 
 
@@ -166,6 +168,10 @@ def convert_to_df(
     ----------
     vcf_list : list
         list of VCF file metadata dicts.
+    exclude_projects : list
+        List of project IDs to exclude from the DataFrame.
+    exclude_samples : list
+        List of sample names or patterns to exclude from the DataFrame.
 
     Returns
     -------
@@ -193,7 +199,7 @@ def convert_to_df(
     if exclude_projects:
         print(f"Excluding the following projects: {exclude_projects}")
         # remove unwanted samples and projects
-        df = df[~df["project_name"].isin(exclude_projects)]
+        df = df[~df["project_id"].isin(exclude_projects)]
 
     if exclude_samples:
         print(f"Excluding the following samples: {exclude_samples}")
