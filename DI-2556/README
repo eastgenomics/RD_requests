@@ -1,0 +1,32 @@
+# running the shell script
+
+$ bash add_headers.sh 
+Number of static beds being processed: 1
+File: old_static_beds/v1.0.0_R25.1_CNV_excluded_b38.bed to be updated to ----> v1.0.1_R25.1_CNV_excluded_b38.bed ......
+New bed panel file path,  new_static_beds/v1.0.1_R25.1_CNV_excluded_b38.bed saved 
+Number of static beds being processed: 2
+File: old_static_beds/v1.0.0_R25.1_CNV_vep_b38.bed to be updated to ----> v1.0.1_R25.1_CNV_vep_b38.bed ......
+New bed panel file path,  new_static_beds/v1.0.1_R25.1_CNV_vep_b38.bed saved 
+
+
+# count number of differences between old and new static beds for 2 test cases #
+# shows each static bed has one difference between old and new 
+$ grep ">" difference_between_old_and_new_static_bed_panel.txt | wc -l
+2
+
+# make test cases
+# test case for no differences in a static bed - shows count of 2 which is expected as 3rd cases is identical
+$ touch v1.0.0_SNV_test_1.bed
+$ touch v1.0.1_SNV_test_1.bed
+$ cp difference_between_old_and_new_static_bed_panel.txt difference_between_old_and_new_static_bed_panel_test_1.txt 
+$ diff -s v1.0.0_SNV_test_1.bed v1.0.1_SNV_test_1.bed >> difference_between_old_and_new_static_bed_panel_test_1.txt 
+$ grep ">" difference_between_old_and_new_static_bed_panel_test_1.txt | wc -l
+2
+
+# test case for more than one difference in a static bed - shows count of 4 which is expcted the 3rd case has 2 differences
+$ touch v1.0.0_SNV_test_2.bed
+$ touch v1.0.0_SNV_test_2.bed
+$ cp difference_between_old_and_new_static_bed_panel.txt difference_between_old_and_new_static_bed_panel_test_2.txt 
+$ diff -s v1.0.0_SNV_test_2.bed v1.0.1_SNV_test_2.bed >> difference_between_old_and_new_static_bed_panel_test_2.txt 
+$ grep ">" difference_between_old_and_new_static_bed_panel_test_2.txt | wc -l
+4
