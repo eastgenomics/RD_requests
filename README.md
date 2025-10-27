@@ -17,6 +17,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-1480] | Script to compare filtered variants for the same samples |
 | [EBH-4325] | Script to clone QC passing TWE VCFs from 002s to specific 003 project |
 | [EBH-4350] | Script to find all GRCh38 CEN and TWE VCFs, unarchive if necessary, and write the file IDs to file |
+| [NG-617_NG-616] | Clinvar Annotation update script to investigate variants affected by a new CLNSIG tag or tag combination |
 
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338
@@ -33,3 +34,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-1480]: https://cuhbioinformatics.atlassian.net/browse/DI-1480
 [EBH-4325]: https://cuhbioinformatics.atlassian.net/browse/EBH-4325
 [EBH-4350]: https://cuhbioinformatics.atlassian.net/browse/EBH-4350
+[NG-617_NG-616]: https://cuhbioinformatics.atlassian.net/browse/NG-617
