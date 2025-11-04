@@ -1,37 +1,36 @@
 # running the shell script
-
-$ bash add_headers.sh 
+# add_headers paramters: args1 = path to old static bed args2 = old version number args args3= new version number 
+$ bash add_headers.sh /home/dnanexus/old_static_beds/ v1.0.0 v1.0.1
 Number of static beds being processed: 1
 File: v1.0.0_R45.1_CNV_excluded_b38.bed to be updated to ----> v1.0.1_R45.1_CNV_excluded_b38.bed ......
-New bed panel file path,  /home/amanah/eggd_projects/20250911_static_beds_b38_v1.0.1/static_beds/new_static_beds/v1.0.1_R45.1_CNV_excluded_b38.bed saved 
+New bed panel file path,  /home/dnanexus/new_static_beds/v1.0.1_R45.1_CNV_excluded_b38.bed saved 
 Number of static beds being processed: 2
 File: v1.0.0_R45.1_CNV_vep_b38.bed to be updated to ----> v1.0.1_R45.1_CNV_vep_b38.bed ......
-New bed panel file path,  /home/amanah/eggd_projects/20250911_static_beds_b38_v1.0.1/static_beds/new_static_beds/v1.0.1_R45.1_CNV_vep_b38.bed saved 
+New bed panel file path,  /home/dnanexus/new_static_beds/v1.0.1_R45.1_CNV_vep_b38.bed saved 
 Number of static beds being processed: 3
 File: v1.0.0_R45.1_SNV_athena_b38.bed to be updated to ----> v1.0.1_R45.1_SNV_athena_b38.bed ......
-New bed panel file path,  /home/amanah/eggd_projects/20250911_static_beds_b38_v1.0.1/static_beds/new_static_beds/v1.0.1_R45.1_SNV_athena_b38.bed saved 
+New bed panel file path,  /home/dnanexus/new_static_beds/v1.0.1_R45.1_SNV_athena_b38.bed saved 
 Number of static beds being processed: 4
 File: v1.0.0_R45.1_SNV_vep_b38.bed to be updated to ----> v1.0.1_R45.1_SNV_vep_b38.bed ......
-New bed panel file path,  /home/amanah/eggd_projects/20250911_static_beds_b38_v1.0.1/static_beds/new_static_beds/v1.0.1_R45.1_SNV_vep_b38.bed saved 
-
+New bed panel file path,  /home/dnanexus/new_static_beds/v1.0.1_R45.1_SNV_vep_b38.bed saved 
 # count number of differences between old and new static beds for 2 test cases #
 # shows each static bed has one difference between old and new 
-$ grep ">" difference_between_old_and_new_static_bed_panel.txt | wc -l
+$ grep ">" 20251104_difference_between_old_and_new_static_bed_panel.txt | wc -l
 4
 
 # make test cases
 # test case for no differences in a static bed - shows count of 4 which is expected as 5th case is identical
 $ touch v1.0.0_SNV_test_1.bed
 $ touch v1.0.1_SNV_test_1.bed
-$ cp difference_between_old_and_new_static_bed_panel.txt difference_between_old_and_new_static_bed_panel_test_1.txt
-$ diff -s v1.0.0_SNV_test_1.bed v1.0.1_SNV_test_1.bed >> difference_between_old_and_new_static_bed_panel_test_1.txt 
-$ grep ">" difference_between_old_and_new_static_bed_panel_test_1.txt | wc -l
+$ cp 20251104_difference_between_old_and_new_static_bed_panel.txt 20251104_difference_between_old_and_new_static_bed_panel_test_1.txt
+$ diff -s v1.0.0_SNV_test_1.bed v1.0.1_SNV_test_1.bed >> 20251104_difference_between_old_and_new_static_bed_panel_test_1.txt  
+$ grep ">" 20251104_difference_between_old_and_new_static_bed_panel_test_1.txt | wc -l
 4
 
 # test case for more than one difference in a static bed - shows count of 6 which is expcted the 5th case has 2 differences
 $ touch v1.0.0_SNV_test_2.bed
 $ touch v1.0.1_SNV_test_2.bed
-$ cp difference_between_old_and_new_static_bed_panel.txt difference_between_old_and_new_static_bed_panel_test_2.txt 
-$ diff -s v1.0.0_SNV_test_2.bed v1.0.1_SNV_test_2.bed >> difference_between_old_and_new_static_bed_panel_test_2.txt 
-$ grep ">" difference_between_old_and_new_static_bed_panel_test_2.txt | wc -l
+$ cp 20251104_difference_between_old_and_new_static_bed_panel.txt 20251104_difference_between_old_and_new_static_bed_panel_test_2.txt 
+$ diff -s v1.0.0_SNV_test_2.bed v1.0.1_SNV_test_2.bed >> 20251104_difference_between_old_and_new_static_bed_panel_test_2.txt 
+$ grep ">" 20251104_difference_between_old_and_new_static_bed_panel_test_2.txt | wc -l
 6

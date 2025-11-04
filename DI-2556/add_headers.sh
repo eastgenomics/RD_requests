@@ -1,21 +1,23 @@
 #!/bin/bash
 # save comparison output
-touch difference_between_old_and_new_static_bed_panel.txt
+diff_output_file="$(date +'%Y%m%d')"_difference_between_old_and_new_static_bed_panel.txt
+touch "${diff_output_file}"
 # track number of static beds processed
 count=0
 
 # define old static bed file path and version number
-old_static_bed_path="/home/amanah/eggd_projects/20250911_static_beds_b38_v1.0.1/static_beds/old_static_beds/v1.0.0*.bed"
-old_version=v1.0.0
+old_static_bed_path=$1
+old_version=$2
+
 
 # define new static bed file path and version number 
-new_static_bed_path="/home/amanah/eggd_projects/20250911_static_beds_b38_v1.0.1/static_beds/new_static_beds"
-new_version=v1.0.1
-
+new_static_bed_path="/home/dnanexus/new_static_beds"
+new_version=$3
+mkdir "${new_static_bed_path}" 
 
 #update old static bed file by adding a header detailing the updated versions and save in new static file folder.
 # Then use diff to compare old and new static bed files 
-for old_panel_bed_path in ${old_static_bed_path} ; do
+for old_panel_bed_path in ${old_static_bed_path}* ; do
   let count++
   printf  "Number of static beds being processed: %d\n" "$count"
 
@@ -32,6 +34,6 @@ for old_panel_bed_path in ${old_static_bed_path} ; do
   
   #Save diff result in a file 
   diff_output=$(diff -s "${old_panel_bed_path}" "${new_panel_bed_path}")
-  printf "Difference between %s and %s :\n%s\n" "$old_panel_bed_path" "$new_panel_bed_path" "$diff_output" >> difference_between_old_and_new_static_bed_panel.txt
+  printf "Difference between %s and %s :\n%s\n" "$old_panel_bed_path" "$new_panel_bed_path" "$diff_output" >> "$diff_output_file"
 
 done
