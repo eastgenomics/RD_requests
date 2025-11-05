@@ -219,14 +219,10 @@ def convert_to_df(
     if exclude_sample_on_run:
         print(f"Excluding the following samples from specific runs: {exclude_sample_on_run}")
         for pair in exclude_sample_on_run:
-            print(pair)
             sample_to_remove = pair.split(":")[1]
-            print(sample_to_remove)
             run_to_remove_from = pair.split(":")[0]
-            print(run_to_remove_from)
             df = df[~(df["sample"].str.contains(sample_to_remove) & df["project_name"].str.contains(run_to_remove_from))]
         # remove unwanted samples and projects
-        df = df[~df["project_id"].isin(exclude_projects)]
     return df
 
 
