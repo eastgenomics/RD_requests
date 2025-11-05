@@ -48,8 +48,15 @@ def parse_arguments():
     )
     parser.add_argument(
         "--exclude_samples", nargs='+', type=str, required=False, default=[],
-        help="List of samples to exclude if found in search, ie top-up samples." \
+        help="List of samples to exclude if found in search, ie top-up samples. " \
+        "This will remove samples from all runs" \
         "example format \" --exclude_samples 12345K0067 12345K0089\""
+    )
+    parser.add_argument(
+        "--exclude_sample_on_run", nargs='+', type=str, required=False, default=[],
+        help="List of samples in specific runs to exclude if found in search, ie failed samples. " \
+        "This will remove samples from specific runs" \
+        "example format \" --exclude_sample_on_run 002_240221_A01303_0346_AHYJC3DRX3_38_CEN:23341R0046\""
     )
     return parser.parse_args()
 
@@ -158,7 +165,8 @@ def bulk_unarchive_per_project(df: pd.DataFrame):
 def convert_to_df(
     vcf_list: list,
     exclude_projects: list,
-    exclude_samples: list
+    exclude_samples: list,
+    exclude_sample_on_run: list
 ) -> pd.DataFrame:
     """
     Convert a list of VCF file metadata to a pandas DataFrame, exclude rows
@@ -202,12 +210,23 @@ def convert_to_df(
         df = df[~df["project_id"].isin(exclude_projects)]
 
     if exclude_samples:
-        print(f"Excluding the following samples: {exclude_samples}")
+        print(f"Excluding the following samples from all runs: {exclude_samples}")
         # Only know part of top up samples so need to set up a regex
         escaped_samples = [re.escape(sample) for sample in exclude_samples]
         pattern = "|".join(escaped_samples)
         df = df[~df["sample"].str.contains(pattern, regex=True)]
 
+    if exclude_sample_on_run:
+        print(f"Excluding the following samples from specific runs: {exclude_sample_on_run}")
+        for pair in exclude_sample_on_run:
+            print(pair)
+            sample_to_remove = pair.split(":")[1]
+            print(sample_to_remove)
+            run_to_remove_from = pair.split(":")[0]
+            print(run_to_remove_from)
+            df = df[~(df["sample"].str.contains(sample_to_remove) & df["project_name"].str.contains(run_to_remove_from))]
+        # remove unwanted samples and projects
+        df = df[~df["project_id"].isin(exclude_projects)]
     return df
 
 
@@ -276,7 +295,7 @@ def main() -> None:
             vcf["project_name"] = project["describe"]["name"]
         vcfs.extend(vcfs_in_project)
 
-    all_vcfs = convert_to_df(vcfs, args.exclude_projects, args.exclude_samples)
+    all_vcfs = convert_to_df(vcfs, args.exclude_projects, args.exclude_samples, args.exclude_sample_on_run)
     df_no_control, df_no_dups_no_control = remove_controls_and_dups(all_vcfs)
 
     # Write out summary TSV of files found
