@@ -206,7 +206,6 @@ def convert_to_df(
 
     if exclude_projects:
         print(f"Excluding the following projects: {exclude_projects}")
-        # remove unwanted samples and projects
         df = df[~df["project_id"].isin(exclude_projects)]
 
     if exclude_samples:
@@ -222,7 +221,6 @@ def convert_to_df(
             sample_to_remove = pair.split(":")[1]
             run_to_remove_from = pair.split(":")[0]
             df = df[~(df["sample"].str.contains(sample_to_remove) & df["project_name"].str.contains(run_to_remove_from))]
-        # remove unwanted samples and projects
     return df
 
 
