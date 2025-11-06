@@ -35,7 +35,7 @@ for old_panel_bed_path in ${old_static_bed_path}* ; do
     diff_output=$(diff -s "${old_panel_bed_path}" "${new_panel_bed_path}")
     printf "Difference between %s and %s :\n%s\n" "$old_panel_bed_path" "$new_panel_bed_path" "$diff_output" >> "$diff_output_file"
   else
-    printf "Error: Failed to process %s\n" "${old_panel_bed}" >&2
+    printf "Error: Failed to process %s\n" "$old_panel_bed_path" >&2
   fi 
 
 done
