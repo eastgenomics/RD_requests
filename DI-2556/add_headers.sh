@@ -13,7 +13,7 @@ old_version=$2
 # define new static bed file path and version number 
 new_static_bed_path="/home/dnanexus/new_static_beds"
 new_version=$3
-mkdir "${new_static_bed_path}" 
+mkdir -p "${new_static_bed_path}" 
 
 #update old static bed file by adding a header detailing the updated versions and save in new static file folder.
 # Then use diff to compare old and new static bed files 
@@ -29,11 +29,13 @@ for old_panel_bed_path in ${old_static_bed_path}* ; do
 
   # add header and save new static bed file
   header="#assembly=GRCh38,version=${new_version}"
-  sed  "1i ${header}" "${old_panel_bed_path}" >  "${new_panel_bed_path}"
-  printf  "New bed panel file path,  %s saved \n"  "$new_panel_bed_path"
-  
-  #Save diff result in a file 
-  diff_output=$(diff -s "${old_panel_bed_path}" "${new_panel_bed_path}")
-  printf "Difference between %s and %s :\n%s\n" "$old_panel_bed_path" "$new_panel_bed_path" "$diff_output" >> "$diff_output_file"
+  if sed  "1i ${header}" "${old_panel_bed_path}" >  "${new_panel_bed_path}"; then 
+    printf  "New bed panel file path,  %s saved \n"  "$new_panel_bed_path"
+    #Save diff result in a file 
+    diff_output=$(diff -s "${old_panel_bed_path}" "${new_panel_bed_path}")
+    printf "Difference between %s and %s :\n%s\n" "$old_panel_bed_path" "$new_panel_bed_path" "$diff_output" >> "$diff_output_file"
+  else
+    printf "Error: Failed to process %s\n" "${old_panel_bed}" >&2
+  fi 
 
 done
