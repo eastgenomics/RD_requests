@@ -17,7 +17,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-1480] | Script to compare filtered variants for the same samples |
 | [EBH-4325] | Script to clone QC passing TWE VCFs from 002s to specific 003 project |
 | [EBH-4350] | Script to find all GRCh38 CEN and TWE VCFs, unarchive if necessary, and write the file IDs to file |
-
+| [DI-2556] | Script to add headers to static panel beds, that details the version and genome assembly. These static beds will be fetched by eggd_dias_batch to be used in eggd_vep, eggd_athena and eggd_annotate_excluded_regions |
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338
 [EBH-3050]: https://cuhbioinformatics.atlassian.net/browse/EBH-3050
@@ -33,3 +33,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-1480]: https://cuhbioinformatics.atlassian.net/browse/DI-1480
 [EBH-4325]: https://cuhbioinformatics.atlassian.net/browse/EBH-4325
 [EBH-4350]: https://cuhbioinformatics.atlassian.net/browse/EBH-4350
+[DI-2556]: https://cuhbioinformatics.atlassian.net/browse/DI-2556
