@@ -1,6 +1,6 @@
 ## Running the shell script
 
-Paramters used for add_headers.sh: args1 = path to old static bed args2 = old version number args3 = new version number 
+Parameters used for add_headers.sh: args1 = path to old static bed args2 = old version number args3 = new version number 
 
 ```
 $ bash add_headers.sh /home/dnanexus/old_static_beds/ v1.0.0 v1.0.1
