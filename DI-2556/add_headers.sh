@@ -24,11 +24,11 @@ fi
 
 # --- Validate directory ---
 if [[ ! -d "$old_static_bed_path" ]]; then
-  echo "❌ Error: '$old_static_bed_path' is not a valid directory."
+  echo "Error: '$old_static_bed_path' is not a valid directory."
   exit 1
 fi
 
-#update old static bed file by adding a header detailing the updated versions and save in new static file folder.
+# update old static bed file by adding a header detailing the updated versions and save in new static file folder.
 # Then use diff to compare old and new static bed files 
 for old_panel_bed_path in ${old_static_bed_path}* ; do
 
@@ -43,7 +43,7 @@ for old_panel_bed_path in ${old_static_bed_path}* ; do
   if sed  "1i ${header}" "${old_panel_bed_path}" >  "${new_panel_bed_path}"; then 
     let count++
     printf  "New bed panel file path,  %s saved \n"  "$new_panel_bed_path"
-    #Save diff result in a file 
+    # Save diff result in a file 
     diff_output=$(diff -s "${old_panel_bed_path}" "${new_panel_bed_path}")
     printf "Difference between %s and %s :\n%s\n" "$old_panel_bed_path" "$new_panel_bed_path" "$diff_output" >> "$diff_output_file"
   else

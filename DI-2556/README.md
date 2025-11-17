@@ -1,5 +1,8 @@
-# running the shell script
-# add_headers parameters: args1 = path to old static bed args2 = old version number args3 = new version number 
+## Running the shell script
+
+Paramters used for add_headers.sh: args1 = path to old static bed args2 = old version number args3 = new version number 
+
+```
 $ bash add_headers.sh /home/dnanexus/old_static_beds/ v1.0.0 v1.0.1
 File: v1.0.0_R45.1_CNV_excluded_b38.bed to be updated to ----> v1.0.1_R45.1_CNV_excluded_b38.bed ......
 New bed panel file path,  /home/dnanexus/new_static_beds/v1.0.1_R45.1_CNV_excluded_b38.bed saved 
@@ -10,14 +13,20 @@ New bed panel file path,  /home/dnanexus/new_static_beds/v1.0.1_R45.1_SNV_athena
 File: v1.0.0_R45.1_SNV_vep_b38.bed to be updated to ----> v1.0.1_R45.1_SNV_vep_b38.bed ......
 New bed panel file path,  /home/dnanexus/new_static_beds/v1.0.1_R45.1_SNV_vep_b38.bed saved 
 Total number of static beds processed: 4
+```
 
-# count number of differences between old and new static beds for 2 test cases #
-# shows each static bed has one difference between old and new 
+```
+#count number of differences between old and new static beds for 2 test cases #
+#shows each static bed has one difference between old and new 
 $ grep ">" 20251111_difference_between_old_and_new_static_bed_panel.txt | wc -l
 4
+```
 
-# make test cases
-# test case for no differences in a static bed - shows count of 4 which is expected as 5th case is identical
+## Make test cases
+
+Testing the diff output
+```
+#test case for no differences in a static bed - shows count of 4 which is expected as 5th case is identical
 $ echo -e "2\t40300076\t40301306\tNM_000052.0\n1\t40301800\t40301890\tNM_001000.0" > v1.0.0_SNV_test_1.bed
 $ echo -e "2\t40300076\t40301306\tNM_000052.0\n1\t40301800\t40301890\tNM_001000.0" > v1.0.1_SNV_test_1.bed
 $ cp 20251111_difference_between_old_and_new_static_bed_panel.txt 20251111_difference_between_old_and_new_static_bed_panel_test_1.txt 
@@ -31,8 +40,9 @@ $ cat v1.0.0_SNV_test_1.bed
 $ cat v1.0.1_SNV_test_1.bed
 2       40300076        40301306        NM_000052.0
 1       40301800        40301890        NM_001000.0
+```
 
-
+```
 # test case for more than one difference in a static bed - shows count of 6 which is expected the 5th case has 2 differences
  $ cp 20251111_difference_between_old_and_new_static_bed_panel.txt 20251111_difference_between_old_and_new_static_bed_panel_test_2.txt 
  $ echo -e "4\t40301176\t40301396\tNM_001092.4\n4\t40301800\t40301994\tNM_001002.4\n6\t40303336\t403053333\tNM_001852.2" > v1.0.0_SNV_test_2.bed
@@ -51,10 +61,12 @@ $ cat v1.0.1_SNV_test_2.bed
 4       40301176        40301396        NM_001092.4
 4       40301800        40301994        NM_001002.4
 6       40303336        403075333       NM_001852.2
-
-
+```
+Testing error handling 
+```
 $ bash add_headers.sh /home/dnanexus/prod_static_beds/ v1.0.0 v1.0.1
-❌ Error: '/home/dnanexus/prod_static_beds/' is not a valid directory.
+Error: '/home/dnanexus/prod_static_beds/' is not a valid directory.
 
 $ bash add_headers.sh /home/dnanexus/old_static_beds/ v1.0.0 v1.0.1 v3.0.0
 Usage: add_headers.sh <old_static_bed_path> <old_version> <new_version>
+```
