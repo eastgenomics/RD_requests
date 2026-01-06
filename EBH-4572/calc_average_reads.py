@@ -187,7 +187,7 @@ def main() -> None:
     all_read_counts = pd.DataFrame() 
     runs_used = 0
     for file_id in all_files["file_id"]:
-        print(file_id)
+        # print(file_id)
         try :
             cmd = (
             f"dx cat {file_id} "
