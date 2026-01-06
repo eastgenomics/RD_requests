@@ -165,7 +165,7 @@ def main() -> None:
         created_after=args.after_date,
         created_before=args.before_date
     )
-    print("number of projects in period: ", len(found_projects))
+    print("number of projects in time period: ", len(found_projects))
     text_files = []
     for project in found_projects:
 
@@ -177,25 +177,38 @@ def main() -> None:
         text_files.extend(files_in_project)
 
     all_files = convert_to_df(text_files)
+    
+    all_files.to_csv(
+        f"file_status.tsv",
+        sep="\t",
+        index=False,
+    )
 
     all_read_counts = pd.DataFrame() 
+    runs_used = 0
     for file_id in all_files["file_id"]:
-        # print(file_id)
-        cmd = (
-           f"dx cat {file_id} "
-        )
-        output = subprocess.run(cmd, shell=True,
+        print(file_id)
+        try :
+            cmd = (
+            f"dx cat {file_id} "
+            )
+            output = subprocess.run(cmd, shell=True,
                              capture_output=True, check=False)
-        df = pd.read_csv(io.BytesIO(output.stdout), sep="\t")
-        # print(df[["mapped_passed", "total_passed"]])
-        to_add = df[["mapped_passed", "total_passed"]]
-        all_read_counts = pd.concat([all_read_counts, to_add], axis=0, ignore_index= True)
+            df = pd.read_csv(io.BytesIO(output.stdout), sep="\t")
+            # print(df[["mapped_passed", "total_passed"]])
+            to_add = df[["mapped_passed", "total_passed"]]
+            all_read_counts = pd.concat([all_read_counts, to_add], axis=0, ignore_index= True)
+            runs_used+=1
+        except pd.errors.EmptyDataError as error:
+            print(f"Error reading file {file_id}: {error}")
+            print(f"Check archival status of {file_id}")
+            pass
     # print(all_read_counts)
     mean_mapped_passed = round(all_read_counts["mapped_passed"].mean()/1000000, 2)
     mean_total_passed = round(all_read_counts["total_passed"].mean()/1000000,2)
-
-    print("Mean N of Mapped passed reads per sample: ", mean_mapped_passed, " Mb")
-    print("Mean N of total passed reads per sample: ", mean_total_passed, " Mb")
+    print(f"runs used in calculation: {runs_used}")
+    print(f"Mean N of Mapped passed reads per sample: {mean_mapped_passed} Mb")
+    print(f"Mean N of total passed reads per sample: {mean_total_passed} Mb")
 
 if __name__ == "__main__":
     main()
