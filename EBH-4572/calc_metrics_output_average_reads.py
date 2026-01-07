@@ -1,5 +1,7 @@
 import dxpy
+import numpy as np
 import pandas as pd
+import openpyxl
 import subprocess
 import argparse
 import re
@@ -179,7 +181,7 @@ def main() -> None:
     all_files = convert_to_df(text_files)
     
     all_files.to_csv(
-        f"samtools_flagstat_file_status.tsv",
+        f"metrics_output_file_status.tsv",
         sep="\t",
         index=False,
     )
@@ -194,21 +196,35 @@ def main() -> None:
             )
             output = subprocess.run(cmd, shell=True,
                              capture_output=True, check=False)
-            df = pd.read_csv(io.BytesIO(output.stdout), sep="\t")
-            # print(df[["mapped_passed", "total_passed"]])
-            to_add = df[["mapped_passed", "total_passed"]]
-            all_read_counts = pd.concat([all_read_counts, to_add], axis=0, ignore_index= True)
+            sample_excel = openpyxl.load_workbook(io.BytesIO(output.stdout))
+            sample_sheet = sample_excel["MetricsOutput"]
+            sample_data = sample_sheet.values
+            colnames = [c.value for c in next(sample_sheet.iter_rows(min_row=1,
+                                                                 max_row=1))]
+            sample_tab = pd.DataFrame(sample_data, columns=colnames)
+            # total_pf_reads is in row 43 of excel
+            # 42 rather than 43 as excel is 1 based,
+            # 3: to exclude lower and upper guidelines
+            total_pf_reads_row = sample_tab.iloc[[42],3:]
+            total_pf_reads = total_pf_reads_row.transpose()
+            # if sample failed all processes will have NA, remove these from calculation
+            # NA presented as a string, change to NaN
+            total_pf_reads = total_pf_reads.replace('NA', np.nan)
+            # print(total_pf_reads)
+            all_read_counts = pd.concat([all_read_counts, total_pf_reads], axis=0, ignore_index= True)
             runs_used+=1
         except pd.errors.EmptyDataError as error:
             print(f"Error reading file {file_id}: {error}")
             print(f"Check archival status of {file_id}")
             pass
     # print(all_read_counts)
-    mean_mapped_passed = round(all_read_counts["mapped_passed"].mean()/1000000, 2)
-    mean_total_passed = round(all_read_counts["total_passed"].mean()/1000000,2)
+    # select first column only
+    # drop NaNs
+    all_read_counts = all_read_counts.dropna()
+    mean_total_pf_reads = round(all_read_counts.iloc[:,0].mean()/1000000,)
     print(f"runs used in calculation: {runs_used}")
-    print(f"Mean N of Mapped passed reads per sample: {mean_mapped_passed} Mb")
-    print(f"Mean N of total passed reads per sample: {mean_total_passed} Mb")
+    print(f"Mean total pf reads per sample: {mean_total_pf_reads} Mb")
+    #print(f"Mean N of total passed reads per sample: {mean_total_passed} Mb")
 
 if __name__ == "__main__":
     main()
