@@ -179,7 +179,7 @@ def main() -> None:
     all_files = convert_to_df(text_files)
     
     all_files.to_csv(
-        f"samtools_flagstat_file_status.tsv",
+        f"fastqc_seq_counts_file_status.tsv",
         sep="\t",
         index=False,
     )
@@ -195,8 +195,9 @@ def main() -> None:
             output = subprocess.run(cmd, shell=True,
                              capture_output=True, check=False)
             df = pd.read_csv(io.BytesIO(output.stdout), sep="\t")
-            # print(df[["mapped_passed", "total_passed"]])
-            to_add = df[["bcl2fastq_mqc-generalstats-bcl2fastq-total"]]
+            # Total sequences does not include poor quality sequences, adding poor quality
+            df["All Sequences"] = df["Total Sequences"] + df["Sequences flagged as poor quality"]
+            to_add = df[["All Sequences"]]
             # print(to_add)
             all_read_counts = pd.concat([all_read_counts, to_add], axis=0, ignore_index= True)
             runs_used+=1
@@ -207,9 +208,10 @@ def main() -> None:
     # print(all_read_counts)
     all_read_counts = all_read_counts.dropna()
     # print(all_read_counts)
-    mean_total_reads = round(all_read_counts["bcl2fastq_mqc-generalstats-bcl2fastq-total"].mean()/1000000, 2)
+    # multiply by 4 as each sample has 4 "entries" - L001_R1,  L001_R2,  L002_R1, L002_R2
+    mean_total_reads = round((all_read_counts["All Sequences"].mean()/1000000)*4, 2)
     print(f"runs used in calculation: {runs_used}")
-    print(f"Mean N of Mapped passed reads per sample: {mean_total_reads} Mb")
+    print(f"Mean  Total sequences per sample: {mean_total_reads} M")
 
 if __name__ == "__main__":
     main()
