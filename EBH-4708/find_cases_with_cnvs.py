@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
         "--r_code",
         required=True,
         type=str,
-        help="R code to use to check for CNV reports, e.g. 'R228.1'",
+        help="R code to use to check for CNV reports, e.g. 'R223.1'",
     )
 
     parser.add_argument(
@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         required=True,
         type=str,
-        help="Name of the output Excel file",
+        help="Name of the output TSV file",
     )
 
     return parser.parse_args()
@@ -78,8 +78,8 @@ def find_cnv_reports(project: list, test_code: str) -> list:
 
     Parameters
     ----------
-    projects : list
-        list of projects to search in
+    project : dict
+        dict with keys id and describe
     test_code : str
         the test code to look for
 
@@ -249,8 +249,8 @@ def read_in_report(report: dict) -> pd.DataFrame:
 
         df["file_id"] = report["file_id"]
         df["project"] = report["project"]
-    except ValueError:
-        print(f"Cant read in {report['file_id']}")
+    except Exception as e:
+        print(f"Cannot read {report['file_id']}: {e}")
         return None
 
     return df
@@ -317,6 +317,7 @@ def merge_variant_counts(
     merged["variants"] = (
         merged["variants"]
         .fillna(merged["variant_count_from_excel"])
+        .fillna(0)
         .astype(int)
     )
 
@@ -352,9 +353,17 @@ def remove_duplicates(merged_df: pd.DataFrame) -> pd.DataFrame:
 def main():
     args = parse_args()
     projects = find_projects(args.project_name)
+    if not projects:
+        print(f"No projects found matching '{args.project_name}'. Exiting.")
+        exit(1)
+
     files_found = []
     for project in projects:
         files_found.extend(find_cnv_reports(project, args.r_code))
+    if not files_found:
+        print("No CNV report files found in the selected projects. Exiting.")
+        exit(1)
+
     files_found = get_variant_details(files_found)
     unarchive_files(files_found)
     file_df = format_cases(files_found)
