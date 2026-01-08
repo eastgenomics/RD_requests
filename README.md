@@ -16,6 +16,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-1466] | Script to download dias files |
 | [DI-1480] | Script to compare filtered variants for the same samples |
 | [EBH-4325] | Script to clone QC passing TWE VCFs from 002s to specific 003 project |
+| [EBH-4708] | Script to get all cases for an R code and how many CNVs were detected | 
 
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338
@@ -31,3 +32,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-1466]: https://cuhbioinformatics.atlassian.net/browse/DI-1466
 [DI-1480]: https://cuhbioinformatics.atlassian.net/browse/DI-1480
 [EBH-4325]: https://cuhbioinformatics.atlassian.net/browse/EBH-4325
+[EBH-4708]: https://cuhbioinformatics.atlassian.net/browse/EBH-4708
