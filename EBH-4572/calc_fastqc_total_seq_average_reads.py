@@ -185,7 +185,6 @@ def main() -> None:
     )
 
     all_read_counts = pd.DataFrame() 
-    runs_used = 0
     for file_id in all_files["file_id"]:
         # print(file_id)
         try :
@@ -195,22 +194,34 @@ def main() -> None:
             output = subprocess.run(cmd, shell=True,
                              capture_output=True, check=False)
             df = pd.read_csv(io.BytesIO(output.stdout), sep="\t")
+
+            # get unique samples ids 
+            split_names = df["Sample"].str.split("_",n=1,expand=True)
+            sample_names = split_names[0].unique()
+            for sample in sample_names:
+                sample = sample.split("_")[0]
+                sample_count = (df["Sample"].str.contains(sample)).sum()
+                if sample_count != 4:
+                    print(f"{sample} has count of {sample_count}, dropping sample")
+                    df = df[~df["Sample"].str.contains(sample)]
+
+            # count occurances of sample ID 
+
             # Total sequences does not include poor quality sequences, adding poor quality
             df["All Sequences"] = df["Total Sequences"] + df["Sequences flagged as poor quality"]
             to_add = df[["All Sequences"]]
             # print(to_add)
             all_read_counts = pd.concat([all_read_counts, to_add], axis=0, ignore_index= True)
-            runs_used+=1
         except pd.errors.EmptyDataError as error:
             print(f"Error reading file {file_id}: {error}")
             print(f"Check archival status of {file_id}")
             pass
     # print(all_read_counts)
     all_read_counts = all_read_counts.dropna()
-    # print(all_read_counts)
     # multiply by 4 as each sample has 4 "entries" - L001_R1,  L001_R2,  L002_R1, L002_R2
     mean_total_reads = round((all_read_counts["All Sequences"].mean()/1000000)*4, 2)
-    print(f"runs used in calculation: {runs_used}")
+    # print(len(all_read_counts))
+    print(f"Samples used in calculation: {len(all_read_counts)/4}")
     print(f"Mean  Total sequences per sample: {mean_total_reads} M")
 
 if __name__ == "__main__":
