@@ -90,10 +90,17 @@ def get_gtex_data(excel_file: list, tissues: list) -> pd.DataFrame:
         DataFrame with one row per gene symbol and median expression
         values for the requested tissues
     """
-    symbols = excel_file["Gene"].unique()
+    symbols = (
+        excel_file["Gene"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .unique()
+    )
     info_dict = defaultdict(dict)
     for symbol in symbols:
-        symbol = symbol.strip()
         gene_info = query_api(
             server="https://gtexportal.org/api/v2",
             endpoint="/reference/geneSearch",
@@ -155,9 +162,16 @@ def get_spliceai_scores(excel_file):
     """
     results = []
 
-    for idx, row in excel_file.iterrows():
-        variant = row["Location g. (GRCh38)"].replace(":", "-")
-        refseq_target_full = row["Variant c."]
+    for _, row in excel_file.iterrows():
+        raw_variant = row.get("Location g. (GRCh38)")
+        raw_hgvsc = row.get("Variant c.")
+        if pd.isna(raw_variant) or pd.isna(raw_hgvsc):
+            continue
+
+        variant = str(raw_variant).replace(":", "-")
+        refseq_target_full = str(raw_hgvsc).strip()
+        if not refseq_target_full:
+            continue
         refseq_target_base = refseq_target_full.split(".")[0]
 
         # Query SpliceAI
@@ -222,8 +236,22 @@ def get_spliceai_scores(excel_file):
                     f" transcript(s) {ms_refseqs} instead."
                 )
 
-    spliceai_df = pd.DataFrame(results)
-    spliceai_df = spliceai_df.drop_duplicates(keep="first")
+    expected_cols = [
+        "Variant",
+        "Input_HGVSc",
+        "SpliceAI_transcript_set",
+        "SpliceAI_DS_AL",
+        "SpliceAI_DP_AL",
+        "SpliceAI_DS_DL",
+        "SpliceAI_DP_DL",
+        "SpliceAI_DS_AG",
+        "SpliceAI_DP_AG",
+        "SpliceAI_DS_DG",
+        "SpliceAI_DP_DG",
+    ]
+    spliceai_df = pd.DataFrame(results, columns=expected_cols)
+    if not spliceai_df.empty:
+        spliceai_df = spliceai_df.drop_duplicates(keep="first")
 
     return spliceai_df
 
