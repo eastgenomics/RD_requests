@@ -1,7 +1,7 @@
 ## Query GTEx and SpliceAI data
 
 ### Original request
-I am supervising a STP project which is looking at VUS’s predicted to affect splicing to see if they could potentially be re-classified using RNA analysis. We would like help with obtaining SpliceAI scores and GTEX isoform expression data (TPM format) for variants/genes in bulk"
+"I am supervising an STP project which is looking at VUSs predicted to affect splicing to see if they could potentially be re-classified using RNA analysis. We would like help with obtaining SpliceAI scores and GTEX isoform expression data (TPM format) for variants/genes in bulk"
 
 ### Inputs
 The script `query_spliceai_and_gtex.py` takes inputs:
@@ -11,7 +11,7 @@ The script `query_spliceai_and_gtex.py` takes inputs:
 
 ### Running
 Example command:
-```
+```bash
 python query_spliceai_and_gtex.py \
     --input variants_file.xlsx \
     --tissues Whole_Blood Cells_Cultured_fibroblasts Cells_EBV-transformed_lymphocytes \

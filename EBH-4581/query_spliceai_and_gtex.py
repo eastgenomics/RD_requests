@@ -64,11 +64,9 @@ def query_api(server: str, endpoint: str, params: dict) -> dict:
     dict
         Parsed JSON response from the API
     """
-    response = requests.get(server + endpoint, params)
+    response = requests.get(server + endpoint, params, timeout=30)
 
-    if not response.ok:
-        response.raise_for_status()
-        sys.exit()
+    response.raise_for_status()
     return response.json()
 
 
@@ -107,7 +105,9 @@ def get_gtex_data(excel_file: list, tissues: list) -> pd.DataFrame:
                 gene_id = gene["gencodeId"]
         info_dict[symbol]["gene_id"] = gene_id
 
-    gene_ids = [v["gene_id"] for k, v in info_dict.items()]
+    gene_ids = [v["gene_id"] for v in info_dict.values() if v["gene_id"]]
+    if not gene_ids:
+        return pd.DataFrame(columns=["geneSymbol", *tissues])
 
     gtex_response = query_api(
         server="https://gtexportal.org/api/v2/",
@@ -118,10 +118,13 @@ def get_gtex_data(excel_file: list, tissues: list) -> pd.DataFrame:
             "tissueSiteDetailId": tissues,
         },
     )
-    df = pd.DataFrame(gtex_response["data"])
+    df = pd.DataFrame(gtex_response.get("data", []))
+    if df.empty:
+        return pd.DataFrame(columns=["geneSymbol", *tissues])
     gtex_data = df.pivot(
         index="geneSymbol", columns="tissueSiteDetailId", values="median"
     ).reset_index()
+
     return gtex_data
 
 
@@ -258,7 +261,8 @@ def format_final_file(merged_df: pd.DataFrame, tissues: list) -> pd.DataFrame:
             "Cultured fibroblasts",
             "EBV-transformed lymphocytes",
             "Whole blood",
-        ]
+        ],
+        errors="ignore",
     )
     # Add GTEx to beginning of those columns
     gtex_cols = tissues
