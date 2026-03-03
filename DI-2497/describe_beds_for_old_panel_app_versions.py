@@ -8,6 +8,24 @@ from datetime import datetime
 #s$ python describe_beds_for_old_panel_app_versions.py --test_code "R134.1" --created_after "2020-02-17"  --created_before "2023-03-22"
 
 def describe_projects(list_project_id):
+    """
+    Obtain project details for name, id adn type and date from project name 
+
+    Parameters
+    ----------
+    list_project_id : list
+        project ids
+
+    Returns
+    -------
+    projects : list
+        list of dictoraries whereby each dictionary is project:
+            - project number
+            - name 
+            - proj id
+            - project type
+            - date created
+    """
     count=0
     list_projects_with_test_code=[]
     for proj_id in list_project_id:
@@ -26,11 +44,6 @@ def describe_projects(list_project_id):
 
     
     return list_projects_with_test_code
-
-
-                 
-
-    
 
 
 def find_production_projects(test_code, start, end):
@@ -74,10 +87,18 @@ def find_production_projects(test_code, start, end):
     print(f"Number of projects with test code {test_code}: {len(project_ids)}")
     print(f"Number of unique projects with test code {test_code}: {len(list(set(project_ids)))}")
     project_list=describe_projects(list(set(project_ids)))
-
+    #filter list  to obtain prod projects 
     prod_projects=[proj for proj in project_list if proj["project_type"] == "002"]
     print(f"Number of unique production projects with test code {test_code}: {len(prod_projects)}")
     return prod_projects
+
+#def obtain_most_recent_project_with_historical_panelapp_verson(production_projects)
+
+#def fetch_historical_signed_off_versions_from_panelapp(test_code,panel_id)
+
+
+
+#def fetch_bed_panels_with_historical_versions(test_code,project_id,panelapp_version)
 
 
 
@@ -102,8 +123,8 @@ def main():
     args = parser.parse_args()
 
     print(f"Obtain list of projects which has test_code : {args.test_code}")
-    find_production_projects(test_code=args.test_code, start=args.created_after, end=args.created_before)
-
+    prod_projects=find_production_projects(test_code=args.test_code, start=args.created_after, end=args.created_before)
+    print(prod_projects)
     #print(f"Number of projects with test code {args.test_code} created after({args.created_after}) and before ({args.created_before})  : len({lists_projects_with_test_code})")
 
 
