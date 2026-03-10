@@ -246,7 +246,7 @@ def remove_controls_and_dups(df: pd.DataFrame) -> tuple:
           keeping the latest VCF for each sample based on the "created" column.
     """
     # Remove controls and X numbers
-    valid_pattern = r"^\d{9}-\d{5}[RSK]\d{4}"
+    valid_pattern = r"^\d{9,10}-\d{5}[RSK]\d{4}"
     mask = df["sample"].str.contains(valid_pattern, regex=True) & ~df[
         "sample"
     ].str.contains(r"0--|NA|Oncospan|ctrl|Q", case=False, regex=True)
