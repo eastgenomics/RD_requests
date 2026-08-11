@@ -79,6 +79,13 @@ def read_file(old_vcf, new_vcf, old_version, new_version, directory):
     return annotations_old, annotations_new
 
 
+def sort_consequence(val):
+    '''
+    Sort Consequence field so that Consequence1&Consequence2 does not differ from Consequence2&Consequence1
+    '''
+    return "&".join(sorted(val.split("&")))
+
+
 def find_mismatches(annotations_old, annotations_new, old_version, new_version):
     '''
     Merge old and new variant lines on variant and feature.
@@ -104,9 +111,12 @@ def find_mismatches(annotations_old, annotations_new, old_version, new_version):
     '''
     # merge based on certain headers
     merged = pd.merge(annotations_old, annotations_new, on=["CHROM", "POS", "REF", "ALT", "Feature"], how='inner')
+
+    merged[f"Consequence_sorted_{old_version}"] = merged[f"Consequence_{old_version}"].apply(sort_consequence)
+    merged[f"Consequence_sorted_{new_version}"] = merged[f"Consequence_{new_version}"].apply(sort_consequence)
     
     # get any mismatches between old and new Consequence, HGVSc, and HGVSp
-    any_mismatches = merged[(merged[f"Consequence_{old_version}"] != merged[f"Consequence_{new_version}"]) 
+    any_mismatches = merged[(merged[f"Consequence_sorted_{old_version}"] != merged[f"Consequence_sorted_{new_version}"]) 
                             | (merged[f"HGVSc_{old_version}"] != merged[f"HGVSc_{new_version}"]) 
                             | (merged[f"HGVSp_{old_version}"] != merged[f"HGVSp_{new_version}"])]
     
