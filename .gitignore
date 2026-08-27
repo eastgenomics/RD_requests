@@ -6,6 +6,8 @@
 *.csv
 *.txt
 .env
+*.vcf.gz
+*.vcf.gz.tbi
 venv/
 __pycache__/
 !CEN_config.json
