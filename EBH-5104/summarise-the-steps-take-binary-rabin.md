@@ -1,0 +1,19 @@
+# Pipeline summary: producing `lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz`
+
+This document describes the steps taken to find different categories of LEPR variants as requested in helpdesk ticket 5104. 
+
+## Reconstructed pipeline (in order)
+
+| # | Stage | Tool / command | Output (timestamp) |
+|---|-------|-----------------|--------------------------|
+| 1 | Find R149 panel-report workbooks on DNAnexus | `find_vcfs.py --project_search_term "002.*TWE" --file_search_term '*R149*.xlsx' --before_date 2026-06-01 --after_date 2021-01-01 --output_prefix R149_panel_samples_` — searches DNAnexus projects/files via `dxpy`, removes controls/duplicates, keeps the newest VCF per sample | `R149_panel_samples_VCFs_*.tsv` (2026-06-22) |
+| 2 | Find actual per-sample TWE VCFs, restricted to the R149 sample list from step 1 | `find_vcfs_filter_to_R149.py --project_search_term "002.*TWE" --file_search_term '*markdup_recalibrated_Haplotyper.vcf.gz' --before_date 2026-06-01 --after_date 2021-01-01 --output_prefix R149_vcfs_` (a modified copy of `find_vcfs.py` that filters to samples already known from step 1) | `R149_vcfs_VCFs_*.tsv` (2026-07-01) |
+| 3 | Extract LEPR-region rows per sample | `check_R149_vcf.py` — splits samples into build-37/38 groups, runs `dx cat {file} \| bcftools view -T GRCh38_LEPR_exons_plus25.bed \| grep -v '^##'` per sample | `lepr_variants_TWE_38.tsv`, `vcf_lepr_variants_TWE_38.tsv` (2026-07-09) |
+| 4 | Build a multi-sample cohort VCF from the per-sample region extracts | convert lepr_variants_TWE_38.tsv to vcf. lepr_variants_TWE_38.tsv has correct columns for VCF and samples missing variants are annotated with "0/0:.:.:.:." to show they are homozygous ref. The tsv file is missing a header. VCF headers were copied from  b38 VCF (file-J8Gj6x84P5VpKX71vxVPGjZQ) and b37 header (file-Gy989B0494BbV7vgZ6bjJgqB). into respective empty VCF files, then the multi sample TSV files added below   |  `lepr_variants_TWE_38.vcf` (2026-07-13, 1079 columns = 9 fixed + 1070 samples) |
+| 5 | Coordinate-sort | `bcftools sort`. VEP fails if VCFs are not sorted| `lepr_variants_TWE_38_sorted.vcf` (2026-07-13 10:08) |
+| 6 | VEP annotation | lepr_variants_TWE_38_sorted.vcf and lepr_variants_TWE_37_sorted.vcf were uploaded to DNAnexus (file-J9BBp6842py3PzY5kQ3bBvpG and file-J9BBp4Q42pyG1B35x4Pv5Pky) provides annotation for filtering Run as DNAnexus job `job-J9BBpx842py30335bggqF6v7` (b37), `job-J9BBpXQ42py9j3kF4xK57X16` (b38) | outputs `lepr_variants_TWE_38_sorted_annotated.vcf.gz` and `lepr_variants_TWE_37_sorted_annotated.vcf.gz` downloaded (2026-07-13 12:18) |
+| 7 | Flatten VEP's `CSQ` field into separate INFO tags | `bcftools split-vep --columns - -a CSQ -Ou -p CSQ_ -d lepr_variants_TWE_38_sorted_annotated.vcf.gz \| bcftools annotate -x INFO/CSQ -o lepr_variants_TWE_38_sorted_annotated.split.vcf.gz` (2026-07-14 11:29) |
+| 8 | Soft-filter for pathogenicity/rarity (produces the target file) | `bcftools filter --soft-filter EXCLUDE -m + -e '<expression>' -o lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz lepr_variants_TWE_38_sorted_annotated.split.vcf.gz` — flags (does not drop) variants as `FILTER=EXCLUDE` if they lack a pathogenic ClinVar/HGMD call **and** are either common (gnomAD AF > 1%, internal CEN cohort AF > 5%) or a benign-consequence class (synonymous/intronic/UTR/intergenic/upstream/downstream, unless HGMD "DM?"); two specific recurrent indels (chr1:55039879, chr20:58854641) are force-excluded regardless | **`lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz`** (2026-07-14 11:42) |
+| 9 | Extract variants and samples  | Run find_homozygous_intron.sh , find_homozygous.sh, find_multi_hets.sh, and find_single_het_intron.sh to produce summaries of the different samples falling into each variant category.  | `lepr_variants_TWE_38.tsv`, `vcf_lepr_variants_TWE_38.tsv` (2026-07-09) |
+
+        
