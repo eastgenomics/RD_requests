@@ -1,7 +1,7 @@
 import dxpy
 import pandas as pd
 import argparse
-import re
+import json
 
 
 def parse_arguments():
@@ -40,24 +40,7 @@ def parse_arguments():
         "--output_prefix", type=str, required=False, default="",
         help="Prefix for output file names."
     )
-    parser.add_argument(
-        "--exclude_projects", nargs='+', type=str, required=False, default=[],
-        help="List of projects IDs to exclude if found in search, e.g. validation runs." \
-        "example format \"--exclude_projects project-xxxx" \
-        "project-xxxx\""
-    )
-    parser.add_argument(
-        "--exclude_samples", nargs='+', type=str, required=False, default=[],
-        help="List of samples to exclude if found in search, ie top-up samples. " \
-        "This will remove samples from all runs" \
-        "example format \" --exclude_samples 12345K0067 12345K0089\""
-    )
-    parser.add_argument(
-        "--exclude_sample_on_run", nargs='+', type=str, required=False, default=[],
-        help="List of samples in specific runs to exclude if found in search, ie failed samples. " \
-        "This will remove samples from specific runs" \
-        "example format \" --exclude_sample_on_run 002_240221_A01303_0346_AHYJC3DRX3_38_CEN:23341R0046\""
-    )
+
     return parser.parse_args()
 
 
@@ -120,21 +103,51 @@ def find_files_in_project(project: dict, name: str,
     list
         A list of VCF file objects matching the name.
     """
-    vcfs = list(
-        dxpy.find_data_objects(
-            project=project["id"],
-            name=name,
-            name_mode=name_mode,
-            classname="file",
-            describe={
-                "fields": {
-                    "archivalState": True,
+    vcfs = list()
+    # search for generate bed for athena as used by both first TWE run and most recent TWE run
+    athena_job = list(dxpy.bindings.search.find_executions(
+        classname="job",
+        state="done",
+        name_mode="glob",
+        name="*generate_bed_for_athena*",
+        project=project["id"],
+        describe={"fields": {"name": True,
+                             "runInput": True,
+                             "parentAnalysis" : True}}))
+    # get elements of the list where stage 
+    for a in athena_job:
+        if "R149" in a["describe"]["runInput"]["panel"]:
+            # print(a)
+            # get analysis name from parentAnalysis
+            # not all versions of the assay have additional regions, or vep
+            # aim is to find haplotyper VCF from sample name
+            analysis_desc = dxpy.DXAnalysis(a["describe"]["parentAnalysis"]).describe(
+                    fields={
                     "name": True,
-                    "created": True,
-                }
-            },
-        )
-    )
+                     }     
+                    )
+            # get name of analysis, split by "-"
+            # for recent run analysis is dias_reports_v2.2.3_145241267-26240R0012_R149.1 (SNV)"
+            # for original run analysis is dias_reports_v1.2.1-X217809 
+            # splitting by "-" and then splitting by "_" gives the sample name 
+            sample_of_interest = analysis_desc["name"].split("-")[1].split("_")[0]
+            search_name = ".*" + sample_of_interest + name
+
+            vcfs = vcfs + list(
+                    dxpy.find_data_objects(
+                        project=project["id"],
+                        name=search_name,
+                        name_mode=name_mode,
+                        classname="file",
+                        describe={
+                            "fields": {
+                                "archivalState": True,
+                                "name": True,
+                                "created": True,
+                            }
+                        },
+                    )
+                )
 
     return vcfs
 
@@ -163,10 +176,7 @@ def bulk_unarchive_per_project(df: pd.DataFrame):
 
 
 def convert_to_df(
-    vcf_list: list,
-    exclude_projects: list,
-    exclude_samples: list,
-    exclude_sample_on_run: list
+    vcf_list: list
 ) -> pd.DataFrame:
     """
     Convert a list of VCF file metadata to a pandas DataFrame, exclude rows
@@ -203,26 +213,6 @@ def convert_to_df(
     df["sample"] = df["name"].str.split("-").str[0:2].str.join("-")
     df["project_file"] = df["project_id"] + ":" + df["file_id"]
     df["assay"] = df["project_name"].str.split("_").str[-1]
-
-    if exclude_projects:
-        print(f"Excluding the following projects: {exclude_projects}")
-        df = df[~df["project_id"].isin(exclude_projects)]
-
-    if exclude_samples:
-        print(f"Excluding the following samples from all runs: {exclude_samples}")
-        # Only know part of top up samples so need to set up a regex
-        escaped_samples = [re.escape(sample) for sample in exclude_samples]
-        pattern = "|".join(escaped_samples)
-        print(len(df))
-        df = df[~df["sample"].str.contains(pattern, regex=True)]
-        print(len(df))
-
-    if exclude_sample_on_run:
-        print(f"Excluding the following samples from specific runs: {exclude_sample_on_run}")
-        for pair in exclude_sample_on_run:
-            sample_to_remove = pair.split(":")[1]
-            run_to_remove_from = pair.split(":")[0]
-            df = df[~(df["sample"].str.contains(sample_to_remove) & df["project_name"].str.contains(run_to_remove_from))]
     return df
 
 
@@ -295,7 +285,7 @@ def main() -> None:
         for vcf in vcfs_in_project:
             vcf["project_name"] = project["describe"]["name"]
         vcfs.extend(vcfs_in_project)
-    all_vcfs = convert_to_df(vcfs, args.exclude_projects, args.exclude_samples, args.exclude_sample_on_run)
+    all_vcfs = convert_to_df(vcfs)
     print(len(all_vcfs))
     df_no_control, df_no_dups_no_control = remove_controls_and_dups(all_vcfs)
     
@@ -331,17 +321,6 @@ def main() -> None:
         if args.unarchive:
             print("Unarchiving files...")
             bulk_unarchive_per_project(non_live)
-
-    # Write out file IDs for each assay
-    for assay in df_no_dups_no_control["assay"].unique():
-        assay_vcfs = df_no_dups_no_control[df_no_dups_no_control["assay"] == assay]
-
-        assay_vcfs["project_file"].to_csv(
-            f"{args.output_prefix}{assay}_VCFs_ids.txt",
-            index=False,
-            header=False,
-        )
-
 
 if __name__ == "__main__":
     main()
