@@ -105,7 +105,8 @@ if len(build38_samples) > 0:
         )
 
         # convert to multi-sample vcf format, one line per variant, with sample columns
-        variant_cols = ["#CHROM","POS","ID", "REF", "ALT"]
+        # adding format as INDEL can have GT:AD:DP:GQ:PGT:PID:PL format rather than GT:AD:DP:GQ:PL
+        variant_cols = ["#CHROM","POS","ID", "REF", "ALT","FORMAT"]
         vcf_38_lepr = (
         lepr_samples_TWE_38.pivot_table(
                 index=variant_cols,
@@ -121,7 +122,6 @@ if len(build38_samples) > 0:
           "QUAL": "first",   
           "FILTER": "first",
           "INFO": "first",
-          "FORMAT": "first"
          })
          .reset_index()
         )
@@ -135,6 +135,10 @@ if len(build38_samples) > 0:
         # fill in missing sample values with "./."
         sample_cols = [c for c in vcf_38_lepr.columns if c not in variant_cols]
         vcf_38_lepr[sample_cols] = vcf_38_lepr[sample_cols].fillna("./.")
+
+        first_cols = ['#CHROM','POS','ID', 'REF','ALT','QUAL','FILTER','INFO','FORMAT']
+        last_cols = [col for col in vcf_38_lepr.columns if col not in first_cols]
+        vcf_38_lepr = vcf_38_lepr[first_cols + last_cols]
 
         # save to vcf file
         with open("lepr_variants_38.vcf", "w") as f:
@@ -204,7 +208,7 @@ if len(build37_samples) > 0:
         )
 
         # convert to multi-sample vcf format, one line per variant, with sample columns
-        variant_cols = ["#CHROM","POS","ID", "REF", "ALT"]
+        variant_cols = ["#CHROM","POS","ID", "REF", "ALT","FORMAT"]
         vcf_37_lepr = (
         lepr_samples_TWE_37.pivot_table(
                 index=variant_cols,
@@ -220,8 +224,7 @@ if len(build37_samples) > 0:
         .agg({
           "QUAL": "first",   
           "FILTER": "first",
-          "INFO": "first",
-          "FORMAT": "first"
+          "INFO": "first"
          })
          .reset_index()
         )
@@ -236,6 +239,11 @@ if len(build37_samples) > 0:
         # add co;lumns for each sample, with missing values filled in with "./."
         sample_cols = [c for c in vcf_37_lepr.columns if c not in variant_cols]
         vcf_37_lepr[sample_cols] = vcf_37_lepr[sample_cols].fillna("./.")
+        #reorder columns to match vcf format, with sample columns at the end, accounting for not knowing the sample names in advance
+
+        first_cols = ['#CHROM','POS','ID', 'REF','ALT','QUAL','FILTER','INFO','FORMAT']
+        last_cols = [col for col in vcf_37_lepr.columns if col not in first_cols]
+        vcf_37_lepr = vcf_37_lepr[first_cols + last_cols]
 
         # save to vcf file
         with open("lepr_variants_37.vcf", "w") as f:
