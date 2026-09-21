@@ -14,13 +14,13 @@ lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz | sort | uniq -c | awk '$1
 for sample in $hets; do
     intron_variants_old_annotation=$(bcftools query \
         -s "$sample" \
-        -i 'GT!="./." &CSQ_Consequence="*intron*"' \
+        -i 'GT!="./." &CSQ_Consequence~"intron*"' \
         -f '[%SAMPLE]\t%CHROM\t%POS\t%REF\t%ALT\t[%GT]\t%FILTER\t%CSQ_Consequence\t%CSQ_gnomADg_AF\t%CSQ_gnomADe_AF\t%CSQ_TWE_AF\n' \
         lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz)
         if [ "$intron_variants_old_annotation" = "" ]; then
             intron_variants_new_annotation=$(bcftools query \
             -s "$sample" \
-            -i 'GT!="./." &CSQ_Consequence="*intron*"' \
+            -i 'GT!="./." &CSQ_Consequence~"intron*"' \
             -f '[%SAMPLE]\t%CHROM\t%POS\t%REF\t%ALT\t[%GT]\t%FILTER\t%CSQ_Consequence\t%CSQ_gnomADg_AF\t%CSQ_gnomADe_AF\t%CSQ_TWE_WES_v1_AF\n' \
             lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz)
 
@@ -54,13 +54,13 @@ hets=$(bcftools query \
 for sample in $hets; do
     intron_variants_old_annotation=$(bcftools query \
         -s "$sample" \
-        -i 'GT!="0/0" &CSQ_Consequence="intron_variant"' \
+        -i 'GT!="0/0" &CSQ_Consequence~"intron_variant"' \
         -f '[%SAMPLE]\t%CHROM\t%POS\t%REF\t%ALT\t[%GT]\t%FILTER\t%CSQ_Consequence\t%CSQ_gnomADg_AF\t%CSQ_gnomADe_AF\t%CSQ_TWE_AF\n' \
         lepr_variants_TWE_37_sorted_annotated_filtered.vcf.gz)
         if [ "$intron_variants_old_annotation" = "" ]; then
             intron_variants_new_annotation=$(bcftools query \
             -s "$sample" \
-            -i 'GT!="0/0" &CSQ_Consequence="intron_variant"' \
+            -i 'GT!="0/0" &CSQ_Consequence~"intron_variant"' \
             -f '[%SAMPLE]\t%CHROM\t%POS\t%REF\t%ALT\t[%GT]\t%FILTER\t%CSQ_Consequence\t%CSQ_gnomADg_AF\t%CSQ_gnomADe_AF\t%CSQ_TWE_WES_v1_AF\n' \
             lepr_variants_TWE_37_sorted_annotated_filtered.vcf.gz)
 
