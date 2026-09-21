@@ -20,6 +20,14 @@ def parse_arguments():
         "--input_file", type=str, required=True,
         help="Input file containing VCF file information."
         )
+        parser.add_argument(
+        "--b38_vcf_header", type=str, required=False,
+        help="Input file containing VCF header information for build 38."
+        )
+        parser.add_argument(
+        "--b37_vcf_header", type=str, required=False,
+        help="Input file containing VCF header information for build 37."
+        )
         return parser.parse_args()
 
 # in included find LEPR variants, in excluded find lepr variants 
@@ -131,7 +139,12 @@ if len(build38_samples) > 0:
 
         # save to vcf file
         with open("lepr_variants_38.vcf", "w") as f:
-                f.write("##fileformat=VCFv4.2\n")
+                if args.b38_vcf_header:
+                        with open(args.b38_vcf_header, 'r') as header_file:
+                                header_content = header_file.read()
+                                f.write(header_content)
+                else:
+                        f.write("##fileformat=VCFv4.2\n")
                 vcf_38_lepr.to_csv(f, sep="\t", index=False)
 
 
@@ -227,5 +240,10 @@ if len(build37_samples) > 0:
 
         # save to vcf file
         with open("lepr_variants_37.vcf", "w") as f:
-                f.write("##fileformat=VCFv4.2\n")
+                if args.b37_vcf_header:
+                        with open(args.b37_vcf_header, 'r') as header_file:
+                                header_content = header_file.read()
+                                f.write(header_content)
+                else:
+                        f.write("##fileformat=VCFv4.2\n")
                 vcf_37_lepr.to_csv(f, sep="\t", index=False)
