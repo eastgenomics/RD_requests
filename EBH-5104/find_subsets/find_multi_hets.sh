@@ -5,7 +5,7 @@
 ## GRCH38 ## 
 multi_hets=$(bcftools query \
 -i 'GT="het" & FILTER!="EXCLUDE"' \
--f '[%SAMPLE]' \
+-f '[%SAMPLE\n]' \
 lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz | sort | uniq -c | awk '$1 >=2 { print $2 }' )
 
 for sample in $multi_hets; do
@@ -20,7 +20,7 @@ done
 ## GRCH37 ##
 multi_hets=$(bcftools query \
 -i 'GT="het" & FILTER!="EXCLUDE"' \
--f '[%SAMPLE]' \
+-f '[%SAMPLE\n]' \
 lepr_variants_TWE_37_sorted_annotated_filtered.vcf.gz | sort | uniq -c | awk '$1 >=2 { print $2 }' )
 
 for sample in $multi_hets; do
