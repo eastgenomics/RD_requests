@@ -194,14 +194,14 @@ def find_new_changes(merged_df, old_version, new_version):
 
     # Changed between versions, but both still disagree with VariantValidator
     merged_df["HGVSc_changed_both_wrong"] = (
-        merged_df["HGVSc_" + old_version + "_mismatch"] 
-        & merged_df["HGVSc_" + new_version + "_mismatch"] 
-        & (merged_df["HGVSc_" + old_version] != merged_df["HGVSc_" + new_version])
+        merged_df[f"HGVSc_{old_version}_mismatch"] 
+        & merged_df[f"HGVSc_{new_version}_mismatch"] 
+        & (merged_df[f"HGVSc_{old_version}"] != merged_df[f"HGVSc_{new_version}"])
     )
     merged_df["HGVSp_changed_both_wrong"] = (
-        merged_df["HGVSp_" + old_version + "_mismatch"]
-        & merged_df["HGVSp_" + new_version + "_mismatch"]
-        & (merged_df["HGVSp_" + old_version] != merged_df["HGVSp_" + new_version])
+        merged_df[f"HGVSp_{old_version}_mismatch"]
+        & merged_df[f"HGVSp_{new_version}_mismatch"]
+        & (merged_df[f"HGVSp_{old_version}"] != merged_df[f"HGVSp_{new_version}"])
     )
 
     # Get counts
