@@ -3,30 +3,33 @@
 # rather than looping through all hets, find sampls with 2 or more hets and then loop through those samples to get the variant info 
 
 ## GRCH38 ## 
-multi_hets=$(bcftools query \
--i 'GT="het" & FILTER!="EXCLUDE"' \
+# identify samples with 2 or more included hets
+bcftools query \
+-i 'GT="het" & FILTER!="EXCLUDE" & CSQ_Feature="NM_002303.6"' \
 -f '[%SAMPLE\n]' \
-lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz | sort | uniq -c | awk '$1 >=2 { print $2 }' )
+lepr_variants_38_annotated_filtered.vcf.gz | sort | uniq -c | awk '$1 >=2 { print $2 }' > multi_hets.txt
 
-for sample in $multi_hets; do
-    bcftools query \
-    -s "$sample" \
-    -i 'GT="het" & FILTER!="EXCLUDE"' \
-    -f '[%SAMPLE]\t%CHROM\t%POS\t%REF\t%ALT\t[%GT]\t%FILTER\n' \
-    lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz >> included_multi_het_38.txt
-done
+# get het variants of samples with 2 or more included hets
 
+bcftools query \
+    -S multi_hets.txt \
+    -i 'GT="het" & FILTER!="EXCLUDE" & CSQ_Feature="NM_002303.6"' \
+    -f '[%SAMPLE\t%CHROM\t%POS\t%REF\t%ALT\t%GT\t%FILTER\t%CSQ_Consequence\t%CSQ_gnomADg_AF\t%CSQ_gnomADe_AF\t%CSQ_TWE_WES_v1_AF\n]' \
+    lepr_variants_38_annotated_filtered.vcf.gz > temp_included_multi_het_38.txt
+
+sort temp_included_multi_het_38.txt > included_multi_het_38.txt
 
 ## GRCH37 ##
-multi_hets=$(bcftools query \
--i 'GT="het" & FILTER!="EXCLUDE"' \
--f '[%SAMPLE\n]' \
-lepr_variants_TWE_37_sorted_annotated_filtered.vcf.gz | sort | uniq -c | awk '$1 >=2 { print $2 }' )
+bcftools query \
+ -i 'GT="het" & FILTER!="EXCLUDE" & CSQ_Feature="NM_002303.6"' \
+ -f '[%SAMPLE\n]' \
+ lepr_variants_37_annotated_filtered.vcf.gz | sort | uniq -c | awk '$1 >=2 { print $2 }' > multi_hets.txt
 
-for sample in $multi_hets; do
-    bcftools query \
-    -s "$sample" \
-    -i 'GT="het" & FILTER!="EXCLUDE"' \
-    -f '[%SAMPLE]\t%CHROM\t%POS\t%REF\t%ALT\t[%GT]\t%FILTER\n' \
-    lepr_variants_TWE_37_sorted_annotated_filtered.vcf.gz >> included_multi_het_37.txt
-done
+
+bcftools query \
+    -S multi_hets.txt \
+    -i 'GT="het" & FILTER!="EXCLUDE" & CSQ_Feature="NM_002303.6"' \
+    -f '[%SAMPLE\t%CHROM\t%POS\t%REF\t%ALT\t%GT\t%FILTER\t%CSQ_Consequence\t%CSQ_gnomADg_AF\t%CSQ_gnomADe_AF\t%CSQ_TWE_AF\n]' \
+    lepr_variants_37_annotated_filtered.vcf.gz > temp_included_multi_het_37.txt
+
+sort temp_included_multi_het_37.txt > included_multi_het_37.txt
