@@ -192,12 +192,26 @@ def find_new_changes(merged_df, old_version, new_version):
     merged_df["HGVSc_newly_wrong"] = (merged_df[f"HGVSc_{old_version}_mismatch"] == False) & (merged_df[f"HGVSc_{new_version}_mismatch"] == True)
     merged_df['HGVSp_newly_wrong'] = (merged_df[f"HGVSp_{old_version}_mismatch"] == False) & (merged_df[f"HGVSp_{new_version}_mismatch"] == True)
 
+    # Changed between versions, but both still disagree with VariantValidator
+    merged_df["HGVSc_changed_both_wrong"] = (
+        merged_df[f"HGVSc_{old_version}_mismatch"] 
+        & merged_df[f"HGVSc_{new_version}_mismatch"] 
+        & (merged_df[f"HGVSc_{old_version}"] != merged_df[f"HGVSc_{new_version}"])
+    )
+    merged_df["HGVSp_changed_both_wrong"] = (
+        merged_df[f"HGVSp_{old_version}_mismatch"]
+        & merged_df[f"HGVSp_{new_version}_mismatch"]
+        & (merged_df[f"HGVSp_{old_version}"] != merged_df[f"HGVSp_{new_version}"])
+    )
+
     # Get counts
     between_version_counts = merged_df[[
         "HGVSc_newly_wrong",
         "HGVSp_newly_wrong",
         "HGVSc_newly_corrected",
-        "HGVSp_newly_corrected"
+        "HGVSp_newly_corrected",
+        "HGVSc_changed_both_wrong",
+        "HGVSp_changed_both_wrong"
     ]].sum().reset_index()
     between_version_counts.columns = ["Mismatch_Type", "Count"]
 
@@ -206,6 +220,8 @@ def find_new_changes(merged_df, old_version, new_version):
     merged_df.loc[merged_df['HGVSp_newly_wrong'] == True].to_csv('hgvsp_newly_wrong.tsv', sep='\t', index=False)
     merged_df[merged_df['HGVSc_newly_corrected'] == True].to_csv('hgvsc_newly_corrected.tsv', sep='\t', index=False)
     merged_df[merged_df['HGVSp_newly_corrected'] == True].to_csv('hgvsp_newly_corrected.tsv', sep='\t', index=False)
+    merged_df[merged_df['HGVSc_changed_both_wrong'] == True].to_csv('hgvsc_changed_both_wrong.tsv', sep='\t', index=False)
+    merged_df[merged_df['HGVSp_changed_both_wrong'] == True].to_csv('hgvsp_changed_both_wrong.tsv', sep='\t', index=False)
 
     # Plot
     changes_fig = px.bar(
