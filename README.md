@@ -20,6 +20,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-2556] | Script to add headers to static panel beds, that details the version and genome assembly. These static beds will be fetched by eggd_dias_batch to be used in eggd_vep, eggd_athena and eggd_annotate_excluded_regions |
 | [EBH-4581] | Script to extract SpliceAI score and GTEX data for certain variants and genes |
 | [EBH-5524] | Script to pull out variants with a specific HGVSc (cDot) prefix for certain samples
+| [DI-3809] | Script to create a all_panels_and_test_codes.json file, used as one of the inputs for eggd_generate_rd_wgs_workbook app.
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338
 [EBH-3050]: https://cuhbioinformatics.atlassian.net/browse/EBH-3050
@@ -38,3 +39,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-2556]: https://cuhbioinformatics.atlassian.net/browse/DI-2556
 [EBH-4581]: https://cuhbioinformatics.atlassian.net/browse/EBH-4581
 [EBH-5524]: https://cuhbioinformatics.atlassian.net/browse/EBH-5524
+[DI-3809]: https://cuhbioinformatics.atlassian.net/browse/DI-3809
