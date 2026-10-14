@@ -1,0 +1,16 @@
+# Pipeline summary: producing `lepr_variants_TWE_38_sorted_annotated_filtered.vcf.gz`
+
+This document describes the steps taken to find different categories of LEPR variants as requested in helpdesk ticket 5104. 
+
+## Reconstructed pipeline (in order)
+
+| # | Stage | Tool / command | Output |
+|---|-------|-----------------|--------------------------|
+| 1 | Find R149 panel-report workbooks on DNAnexus | `find_vcfs.py --project_search_term "002.*TWE" --file_search_term '.*markdup_recalibrated_Haplotyper.vcf.gz$' --before_date 2026-06-01 --after_date 2021-01-01 --output_prefix R149_panel_samples_` — searches DNAnexus projects/files via `dxpy`, removes controls/duplicates, keeps the newest VCF per sample, checks whether the VCFs were produced using panel with R149 in the name| `R149_panel_samples_VCFs_*.tsv` |
+| 2 | Extract LEPR-region rows per sample | `check_R149_vcf.py` — splits samples into build-37/38 groups, runs `dx cat {file} \| bcftools view -T GRCh38_LEPR_exons_plus25.bed \| grep -v '^##'` per sample, saved as a tsv, then combines to produce a headered, sorted vcf with one row per variant | `lepr_variants_TWE_38.tsv`, `lepr_variants_38.vcf` |
+| 3 | VEP annotation | lepr_variants_38.vcf and lepr_variants_37.vcf were uploaded to DNAnexus. This provides annotation for filtering Run as DNAnexus job  (b37),  (b38) | outputs `lepr_variants_38_annotated.vcf.gz` and `lepr_variants_37_annotated.vcf.gz` downloaded (2026-07-13 12:18) |
+| 4 | Flatten VEP's `CSQ` field into separate INFO tags | `bcftools +split-vep --columns - -a CSQ -Ou -p CSQ_ -d lepr_variants_38_annotated.vcf.gz \| bcftools annotate -x INFO/CSQ -o lepr_variants_38_annotated.split.vcf.gz` |
+| 5 | Soft-filter for pathogenicity/rarity (produces the target file) | `bcftools filter --soft-filter "EXCLUDE" -m + -e '(CSQ_ClinVar_CLNSIGCONF!~ "pathogenic/i" & CSQ_ClinVar_CLNSIGCONF!~ "Established_risk_allele/i" & CSQ_HGMD_CLASS!= "DM" & CSQ_ClinVar_CLNSIG!~"Pathogenic" & CSQ_ClinVar_CLNSIG!~"Likely_pathogenic/i" & CSQ_ClinVar_CLNSIG!~ "Established_risk_allele/i" & CSQ_IncludeVariant_IncludeList!="INCLUDE") & ((CSQ_gnomADg_AF>0.01 \| CSQ_gnomADe_AF>0.01) \| CSQ_TWE_WES_v1_AF>0.05 \| ((CSQ_Consequence="synonymous_variant" \| CSQ_Consequence="intron_variant" \| CSQ_Consequence="upstream_gene_variant" \| CSQ_Consequence="downstream_gene_variant" \| CSQ_Consequence="intergenic_variant" \| CSQ_Consequence="5_prime_UTR_variant" \| CSQ_Consequence="3_prime_UTR_variant") & CSQ_HGMD_CLASS!= "DM?")) \| CSQ_ExcludeVariant_ExcludeList="EXCLUDE" ' -o lepr_variants_38_annotated_filtered.vcf.gz lepr_variants_38_annotated.split.vcf.gz ` — flags (does not drop) variants as `FILTER=EXCLUDE` if they lack a pathogenic ClinVar/HGMD call **and** are either common (gnomAD AF > 1%, internal CEN cohort AF > 5%) or a benign-consequence class (synonymous/intronic/UTR/intergenic/upstream/downstream, unless HGMD "DM?"); two specific recurrent indels (chr1:55039879, chr20:58854641) are force-excluded regardless | **`lepr_variants_38_annotated.split.vcf.gz`** |
+| 6 | Extract variants and samples  | Run find_homozygous_intron.sh , find_homozygous.sh, find_multi_hets.sh, and find_single_het_intron.sh to produce summaries of the different samples falling into each variant category.  | `*_38.txt`, `_38.txt` |
+
+        
