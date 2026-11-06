@@ -1,0 +1,25 @@
+[project]
+name = "flagstat-metrics-plotter"
+version = "0.1.0"
+description = "Search DNAnexus for MultiQC flagstat and QC status files, filter samples and plot flagstat percentages per run"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "dxpy==0.418.0",
+    "openpyxl==3.1.5",
+    "pandas==3.1.1",
+    "plotly==7.1.0",
+]
+
+[dependency-groups]
+dev = ["ruff==0.14.3"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
