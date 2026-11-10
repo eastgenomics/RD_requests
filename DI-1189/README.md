@@ -12,6 +12,8 @@ source ~/venvs/panel_updates/bin/activate
 pip install -r requirements.txt
 ```
 
+Tested with Python 3.14. The pinned `pandas` 3.x requires Python 3.11 or later.
+
 Note: the `panelapp` package does not declare `requests` as a dependency, so it is listed explicitly in `requirements.txt`.
 
 ### Inputs
@@ -33,7 +35,7 @@ The script:
   - If only the MOI is different between any duplicates, retains the first instance with the MOI replaced to 'Other'.
 
 #### PanelApp rate limiting
-The PanelApp API rate-limits clients (HTTP 429), and the panelapp library gives up on the first error response. To handle this, the script waits at least 0.5 seconds between API calls and retries on HTTP 429 and 5xx responses up to 8 times with exponential backoff, following any `Retry-After` header from PanelApp.
+The PanelApp API rate-limits clients (HTTP 429), and the panelapp library gives up on the first error response. To handle this, the script waits at least 0.5 seconds between API calls and retries on HTTP 429 and 5xx responses up to 8 times with exponential backoff, following any `Retry-After` header from PanelApp. While it is being rate-limited, the script may pause for a few minutes on a single panel; this is expected and not a hang.
 
 If any panel still cannot be fetched after retrying, the script exits with an error listing the failed panels and **no output file is written**. If this happens, wait a few minutes and run it again.
 
