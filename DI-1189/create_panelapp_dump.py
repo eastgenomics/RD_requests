@@ -1,11 +1,66 @@
+"""
+Create a PanelApp JSON dump for eggd_optimised_filtering.
+
+The PanelApp API rate-limits clients (HTTP 429) and the panelapp library
+gives up on the first non-200 response, so this script:
+- only fetches full panel data for the panels being kept (the panel IDs in
+  --genepanels plus --extra_panels), rather than every signed-off panel
+- waits between API calls and retries on HTTP 429 / 5xx with exponential
+  backoff (honouring any Retry-After header)
+- exits with a clear error listing any panels that still could not be
+  fetched, without writing an output file
+"""
+
 import argparse
 import json
-import pandas as pd
 import sys
-
+import time
 from collections import defaultdict
+
+import pandas as pd
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+import panelapp.api
 from panelapp.Panelapp import Panel
-from panelapp import queries
+from panelapp.api import get_full_results_from_API, get_panelapp_response
+
+
+class ThrottledSession(requests.Session):
+    """
+    requests Session that leaves a minimum gap between calls and retries on
+    HTTP 429 / 5xx with exponential backoff, honouring Retry-After.
+    """
+
+    def __init__(self, min_interval=0.5):
+        super().__init__()
+        self.min_interval = min_interval
+        self._last_call = 0.0
+        retry = Retry(
+            total=8,
+            backoff_factor=2,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"],
+            respect_retry_after_header=True,
+            raise_on_status=False,
+        )
+        self.mount("https://", HTTPAdapter(max_retries=retry))
+
+    def get(self, url, **kwargs):
+        wait = self.min_interval - (time.monotonic() - self._last_call)
+        if wait > 0:
+            time.sleep(wait)
+        kwargs.setdefault("timeout", 60)
+        try:
+            return super().get(url, **kwargs)
+        finally:
+            self._last_call = time.monotonic()
+
+
+# panelapp.api calls requests.get() and has no hook for a session or
+# retries, so route those calls through the throttled session instead
+panelapp.api.requests = ThrottledSession()
 
 
 def parse_args() -> argparse.Namespace:
@@ -285,7 +340,7 @@ def _add_region_info(panel: Panel, info_dict: dict):
 
 def _parse_single_pa_panel(panel: Panel) -> dict:
     """
-    Parse output of all-panel fetching function, which is a Panel object
+    Parse a single PanelApp Panel object into a dict
 
     Parameters
     ----------
@@ -297,12 +352,6 @@ def _parse_single_pa_panel(panel: Panel) -> dict:
     info_dict : dict
         dict with info about the panel
     """
-    attributes = ["name", "version", "id"]  # List of attributes to check
-
-    # Check if all attributes exist in the object
-    if not all(hasattr(panel, attr) for attr in attributes):
-        print(f"One or more required attributes for panel {panel} are missing")
-
     info_dict = {
         "panel_source": "PanelApp",
         "panel_name": panel.name,
@@ -318,10 +367,78 @@ def _parse_single_pa_panel(panel: Panel) -> dict:
     return info_dict
 
 
+def fetch_signedoff_panels(panel_ids=None) -> dict:
+    """
+    Get the list of signed-off panels from PanelApp, then fetch full data
+    only for the panels we want to keep. Exits with an error if the
+    signed-off list or any required panel cannot be retrieved.
+
+    Parameters
+    ----------
+    panel_ids : list, optional
+        list of strings, each a panel ID to retain. If not given, all
+        signed-off panels are fetched
+
+    Returns
+    -------
+    panels : dict
+        panel ID (str) -> Panel object
+    """
+    signedoff = get_panelapp_response(ext_url="panels/signedoff")
+    if not signedoff:
+        sys.exit(
+            "ERROR: could not retrieve the list of signed-off panels from "
+            "PanelApp. Please try again later."
+        )
+    try:
+        signedoff_list = get_full_results_from_API(signedoff)
+    except TypeError:
+        # a later page of results came back as None
+        sys.exit(
+            "ERROR: could not retrieve the full list of signed-off panels "
+            "from PanelApp (a results page failed). Please try again later."
+        )
+
+    if panel_ids:
+        wanted = set(panel_ids)
+        signedoff_ids = {str(p["id"]) for p in signedoff_list}
+        for panel_id in panel_ids:
+            if panel_id not in signedoff_ids:
+                print(
+                    f"\nWARNING: panel ID {panel_id} not found in PanelApp "
+                    "signed-off panels"
+                )
+        signedoff_list = [
+            p for p in signedoff_list if str(p["id"]) in wanted
+        ]
+
+    total = len(signedoff_list)
+    print(f"\nFetching {total} signed-off panels from PanelApp...")
+
+    panels = {}
+    failed = []
+    for i, p in enumerate(signedoff_list, start=1):
+        print(f"\t[{i}/{total}] panel {p['id']} v{p['version']}")
+        panel = Panel(panel_id=p["id"], version=p["version"])
+        if not hasattr(panel, "name"):
+            failed.append(f"{p['id']} (v{p['version']})")
+            continue
+        panels[str(p["id"])] = panel
+
+    if failed:
+        sys.exit(
+            f"\nERROR: failed to retrieve {len(failed)} of {total} panels "
+            "from PanelApp after retries: " + ", ".join(failed)
+            + "\nNo output file written. Please try again later."
+        )
+
+    return panels
+
+
 def parse_specified_pa_panels(panel_ids=None) -> list:
     """
-    Parse all panels. If a list of panel IDs is given, keep only the
-    specified panels
+    Fetch and parse signed-off panels. If a list of panel IDs is given,
+    only those panels are fetched
 
     Parameters
     ----------
@@ -333,24 +450,9 @@ def parse_specified_pa_panels(panel_ids=None) -> list:
     parsed_data : list
         list of dicts, each with info about a panel
     """
-    parsed_data = []
-    all_panels: dict[int, Panel] = queries.get_all_signedoff_panels()
+    all_panels = fetch_signedoff_panels(panel_ids)
 
-    for panel_id, panel in all_panels.items():
-        panel_data = _parse_single_pa_panel(panel)
-        if not panel_data:
-            print(f"Parsing failed for panel ID {panel_id}")
-        parsed_data.append(panel_data)
-
-    if panel_ids:
-        unique_panelapp_ids = [panel["external_id"] for panel in parsed_data]
-        for panel_id in panel_ids:
-            if panel_id not in unique_panelapp_ids:
-                print(f"\nWARNING: panel ID {panel_id} not found in PanelApp")
-
-        parsed_data = [
-            panel for panel in parsed_data if panel["external_id"] in panel_ids
-        ]
+    parsed_data = [_parse_single_pa_panel(p) for p in all_panels.values()]
 
     print(f"\nData parsing complete. {len(parsed_data)} panels retained:")
     panel_names = "\t" + "\n\t".join(
@@ -525,9 +627,9 @@ def try_and_remove_duplicates_for_gene(panel_name, gene_name, gene_dup_list):
         print(
             "There are unexpected differences in keys"
             f" {keys_with_diffs} between the duplicates for gene"
-            f" {gene_name} in {panel_name}All of the {number_of_dups} entries"
-            " for this gene have been added Please check manually to decide"
-            " what to do with any duplicates"
+            f" {gene_name} in {panel_name}. All of the {number_of_dups}"
+            " entries for this gene have been added. Please check manually"
+            " to decide what to do with any duplicates"
         )
         entries_for_gene.extend(gene_dup_list)
 
@@ -634,8 +736,8 @@ def get_final_list_of_panels(all_panels, duplicates):
     ----------
     all_panels : list
         list of dicts, each representing a panel
-    panel_entity_counts : dict
-        dict containing counts of each gene and region within each panel
+    duplicates : dict
+        output of find_duplicate_genes_or_regions()
 
     Returns
     -------
@@ -703,7 +805,7 @@ def get_final_list_of_panels(all_panels, duplicates):
 
     assert len(all_panels) == len(final_list_of_panels), (
         f"The number of panels has changed from {len(all_panels)} originally"
-        f"to {len(final_list_of_panels)} when removing duplicates"
+        f" to {len(final_list_of_panels)} when removing duplicates"
     )
 
     return final_list_of_panels
@@ -739,6 +841,8 @@ def main():
     # Save updated version to JSON file
     with open(args.outfile_name, "w", encoding="utf8") as panelapp_dump:
         json.dump(final_panels, panelapp_dump, indent=4)
+
+    print(f"\nWritten {len(final_panels)} panels to {args.outfile_name}")
 
 
 if __name__ == "__main__":
