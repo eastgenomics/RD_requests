@@ -82,6 +82,12 @@ def search(config: dict[str, Any]) -> dict[str, list]:
         output_dict["files"] = result["deduplicated_files"]
         output_dict["duplicates"] = result["duplicate_files"]
 
+    logger.info(
+        "Search summary: %d files, %d excluded files, %d duplicate files removed",
+        len(output_dict["files"]),
+        len(output_dict["excluded_files"]),
+        len(output_dict["duplicates"]),
+    )
     return output_dict
 
 

@@ -7,6 +7,9 @@ CONFIG = {
     # <run>_QC_Status.xlsx sits in the root of each b38 project
     "file_search": {
         "classname": "file",
+        # Root only, so a copy in a subfolder (e.g. a test folder) can't be picked by the per-project deduplication
+        "folder": "/",
+        "recurse": False,
         "name": r"(?i)_QC_Status\.xlsx$",
         "name_mode": "regexp",
         "describe": {

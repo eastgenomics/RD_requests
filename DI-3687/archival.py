@@ -8,6 +8,11 @@ def raise_if_archived(files, description):
         File dicts from dx_search.search()["files"], searched with archivalState described
     description : str
         What the files are, for the error message
+
+    Raises
+    ------
+    RuntimeError
+        If any file is not live, listing every such file
     """
     states = [(f["project"], f["id"], f["describe"].get("archivalState")) for f in files]
     not_live = [item for item in states if item[2] != "live"]

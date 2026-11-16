@@ -8,7 +8,19 @@ OUTPUT = Path("output")
 
 
 def make_plots(kept):
-    """Write the percentage table and one plot per metric from the filtered flagstat table, returning the table"""
+    """
+    Write the percentage table and one plot per metric from the filtered flagstat table.
+
+    Parameters
+    ----------
+    kept : pd.DataFrame
+        Flagstat table with QC_Status joined on (see qc_status.add_qc_status)
+
+    Returns
+    -------
+    pd.DataFrame
+        The table with the percentage columns added
+    """
     (OUTPUT / "plots").mkdir(parents=True, exist_ok=True)
     plot_df = add_pct_columns(kept)
     plot_df.to_csv(OUTPUT / "plots" / "flagstat_with_pct.tsv", sep="\t", index=False)
@@ -19,4 +31,4 @@ def make_plots(kept):
 
 if __name__ == "__main__":
     # Replot from the saved output of run.py without searching DNAnexus
-    make_plots(pd.read_csv(OUTPUT / "flagstat_filtered.tsv", sep="\t", parse_dates=["project_created"]))
+    make_plots(pd.read_csv(OUTPUT / "flagstat_qc_merged_filtered.tsv", sep="\t", parse_dates=["project_created"]))

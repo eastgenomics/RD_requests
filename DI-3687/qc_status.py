@@ -4,7 +4,7 @@ import logging
 import dxpy
 import pandas as pd
 
-from archival import raise_if_archived
+from gather import gather_files
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +18,47 @@ STATUS_ALIASES = {"FAILED": "FAIL"}
 
 
 def _normalise_header(header):
+    """
+    Lower-case a header and remove spaces and underscores, so header spellings can be compared.
+
+    Parameters
+    ----------
+    header : object
+        Column header, converted to a string
+
+    Returns
+    -------
+    str
+    """
     return str(header).lower().replace(" ", "").replace("_", "")
 
 
-def read_qc_status(file_id, project_id):
-    """Read one <run>_QC_Status.xlsx from DNAnexus into a df of Sample, QC_Status, Reason and project_id"""
-    contents = dxpy.open_dxfile(file_id, project=project_id, mode="rb").read()
+def read_qc_status(file, project_info):
+    """
+    Read one <run>_QC_Status.xlsx from DNAnexus into a cleaned df of Sample, QC_Status, Reason, project_id and run
+    (project name).
+
+    Called by gather_files, which passes project_info: the name and creation time of the file's project, from
+    gather.get_project_info. Only the name is used here.
+
+    Parameters
+    ----------
+    file : dict
+        File dict from dx_search.search()["files"] (id, project, describe)
+    project_info : dict
+        Name and creation time (ms since the epoch) of the file's project
+
+    Returns
+    -------
+    pd.DataFrame
+        Sample, QC_Status, Reason, project_id and run for every sample listed
+
+    Raises
+    ------
+    ValueError
+        If the Sample or QC_Status column cannot be found
+    """
+    contents = dxpy.open_dxfile(file["id"], project=file["project"], mode="rb").read()
     df = pd.read_excel(io.BytesIO(contents), engine="openpyxl")
 
     wanted = {**REQUIRED_HEADERS, **OPTIONAL_HEADERS}
@@ -43,7 +78,8 @@ def read_qc_status(file_id, project_id):
 
     status = df["QC_Status"].astype("string").str.strip().str.upper()
     df["QC_Status"] = status.replace(STATUS_ALIASES)
-    df["project_id"] = project_id
+    df["project_id"] = file["project"]
+    df["run"] = project_info["name"]
     return df
 
 
@@ -59,41 +95,44 @@ def gather_qc_status(qc_files):
     Returns
     -------
     qc_df : pd.DataFrame
-        Sample, QC_Status, Reason and project_id for every sample
-    skipped : list
-        (file_id, project_id, reason) for files that could not be read
+        Sample, QC_Status, Reason, project_id and run (project name) for every sample
+
+    Raises
+    ------
+    RuntimeError
+        If there are no files, or any file cannot be read or parsed
     """
-    raise_if_archived(qc_files, "QC status")
-
-    dfs, skipped = [], []
-    for file in qc_files:
-        file_id, project_id = file["id"], file["project"]
-        try:
-            dfs.append(read_qc_status(file_id, project_id))
-        except (dxpy.exceptions.DXError, ValueError) as error:
-            skipped.append((file_id, project_id, str(error)))
-
-    if not dfs:
-        raise RuntimeError(f"No QC status files could be read. Skipped: {skipped}")
-
-    qc_df = pd.concat(dfs, ignore_index=True)
-    duplicated = qc_df.duplicated(["project_id", "Sample"], keep=False)
-    if duplicated.any():
-        raise ValueError(f"Samples listed more than once in a QC status file: {qc_df[duplicated]['Sample'].tolist()}")
-
-    for file_id, project_id, reason in skipped:
-        logger.warning("Skipped %s (%s): %s", file_id, project_id, reason)
-
-    return qc_df, skipped
+    return gather_files(qc_files, read_qc_status, "QC status")
 
 
 def add_qc_status(df, qc_df):
-    """Left join QC_Status and Reason onto a flagstat table on project_id and Sample"""
-    projects_without_qc = sorted(set(df["project_id"]) - set(qc_df["project_id"]))
-    if projects_without_qc:
-        logger.warning("%d projects have no QC status: %s", len(projects_without_qc), projects_without_qc)
+    """
+    Left join QC_Status and Reason onto a flagstat table on project_sample_key (see
+    prepare_tables.add_project_sample_key). QC rows with no flagstat row are dropped.
 
-    merged = df.merge(qc_df, on=["project_id", "Sample"], how="left", validate="m:1")
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Flagstat table with project_sample_key
+    qc_df : pd.DataFrame
+        QC status table with project_sample_key, QC_Status and Reason
+
+    Returns
+    -------
+    pd.DataFrame
+        df with QC_Status and Reason added. Samples with no QC row have no status
+
+    Raises
+    ------
+    pandas.errors.MergeError
+        If project_sample_key is not unique in either table
+    """
+    merged = df.merge(
+        qc_df[["project_sample_key", "QC_Status", "Reason"]],
+        on="project_sample_key",
+        how="left",
+        validate="1:1",
+    )
     logger.info(
         "QC status: %s; %d of %d samples have no status",
         merged["QC_Status"].value_counts().to_dict(),
