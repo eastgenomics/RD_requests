@@ -51,7 +51,6 @@ What stops the run and what is only logged:
 | Flagstat sample with no QC row | Warning listing the `project_sample_key`s. Kept with no status, so treated as passing |
 | QC row with no flagstat sample | Warning listing the `project_sample_key`s. Dropped |
 | `QC_Status` not `PASS`, `WARNING`, `FAIL` or `CANCELLED` | Warning. Treated as no status |
-| Project with a flagstat file but no QC file, or the reverse | Not an error. It appears in the two warnings above |
 | Project with neither file | Not noticed |
 
 ## 1. Search ([dx_search](dx_search))
@@ -60,21 +59,15 @@ What stops the run and what is only logged:
 `file_filters` and `deduplicate`. It only searches for files; `search()` logs a summary of the files, excluded files and
 duplicate files at the end. The flagstat and QC status files are two separate searches.
 
-Configs: [flagstat.py](dx_search/configs/flagstat.py) and [qc_status.py](dx_search/configs/qc_status.py). Both use the
-same `project_search` (keep the two in step) and keep the newest file per project. The QC status search is limited to
-the project root (`folder: "/"`, `recurse: False`) so a copy in a subfolder cannot be picked.
-
-- `^002_26` keeps 2026 runs only.
-- The flagstat folder differs between runs (`eggd_MultiQC/multiqc_data`, `<run>-multiqc_data`, root), so it is not
-  filtered on. The `test` filter drops ad-hoc copies such as `/test_themis_multiQC/...`.
+Configs: [flagstat.py](dx_search/configs/flagstat.py) and [qc_status.py](dx_search/configs/qc_status.py), which share
+the `project_search` in [common.py](dx_search/configs/common.py). Both keep the newest file per project. See the
+configs for the search parameters.
 
 ## 2. Read
 
-Both readers share [gather.py](gather.py), which stops with an error naming the file and project if there are no files,
-any file is not `live` ([archival.py](archival.py), listing every archived file, as all data for the projects found is
-needed: unarchive them and rerun), or any file cannot be read or parsed. Nothing is skipped, so the statistics are
-never calculated from a silently incomplete set of runs. It also looks up each project's name and creation time once and passes it to the reader for that
-project's files (the error message names the project).
+Both readers share [gather.py](gather.py), which checks the files are not archived ([archival.py](archival.py)),
+looks up each project's name and creation time, reads every file and concatenates the results. Failures stop the run
+(see the table above).
 
 - [flagstat_reader.py](flagstat_reader.py): reads each flagstat file and concatenates, adding `run` (project name),
   `project_created`, `project_id`, `file_id`.
@@ -86,9 +79,8 @@ project's files (the error message names the project).
   - Other columns and the run-level block to the right of the table are ignored.
   - `FAILED` is treated as `FAIL`.
 
-The search returns one file per project (the newest), so a project with no flagstat or no QC file simply has no rows
-in that table. A project with neither file is not noticed. A run that should not be analysed is excluded by editing the
-`dx_search` configs, not in the app.
+A project with no flagstat or no QC file simply has no rows in that table. A project with neither file is not
+noticed. A run that should not be analysed is excluded by editing the `dx_search` configs, not in the app.
 
 The raw tables are written to `output/` (`flagstat_combined.tsv`, `qc_statuses_combined.tsv`) before any checks, so they can be
 inspected if a check stops the run.
