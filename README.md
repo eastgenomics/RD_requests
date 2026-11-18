@@ -21,6 +21,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [EBH-4581] | Script to extract SpliceAI score and GTEX data for certain variants and genes |
 | [EBH-5524] | Script to pull out variants with a specific HGVSc (cDot) prefix for certain samples
 | [DI-3809] | Script to create a all_panels_and_test_codes.json file, used as one of the inputs for eggd_generate_rd_wgs_workbook app.
+| [DI-3687] | Script to gather and plot CEN supplementary alignments and mate mapped to different chromosome percentages from flagstat, to assess passing percentage thresholds |
 
 [EBH-3338]: https://cuhbioinformatics.atlassian.net/browse/EBH-3338
 [EBH-3050]: https://cuhbioinformatics.atlassian.net/browse/EBH-3050
@@ -40,3 +41,4 @@ Repository for code related to small tasks for supporting the RD service.
 [EBH-4581]: https://cuhbioinformatics.atlassian.net/browse/EBH-4581
 [EBH-5524]: https://cuhbioinformatics.atlassian.net/browse/EBH-5524
 [DI-3809]: https://cuhbioinformatics.atlassian.net/browse/DI-3809
+[DI-3687]: https://cuhbioinformatics.atlassian.net/browse/DI-3687

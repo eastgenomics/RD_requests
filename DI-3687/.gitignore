@@ -1,0 +1,11 @@
+# Results
+output/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# All dotfiles and dot folders (.venv, .claude, .vscode, shell configs...) except this file
+.*
+!.gitignore
