@@ -72,7 +72,7 @@ def add_pct_columns(df, metrics=PLOT_METRICS):
 
     df = df.copy()
     for pct_column, metric in metrics.items():
-        df[pct_column] = df[metric["count_column"]] / df["flagstat_total"] * 100
+        df[pct_column] = numeric[metric["count_column"]] / numeric["flagstat_total"] * 100
     return df
 
 
